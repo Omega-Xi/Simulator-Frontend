@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Sign Up - Stock Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 500px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        label .required {
+            color: #f44;
+            margin-left: 4px;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input:hover, select:hover {
+            border-color: #999;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            color: #999;
+            font-size: 18px;
+        }
+
+        .toggle-password:hover {
+            color: #667eea;
+        }
+
+        .password-strength {
+            margin-top: 8px;
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .password-strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease, background-color 0.3s ease;
+        }
+
+        .password-strength-text {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #666;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .checkbox-group input {
+            width: auto;
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: normal;
+            flex: 1;
+        }
+
+        .info-text {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            margin-left: 28px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .links {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .links a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border-left: 4px solid #c33;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border-left: 4px solid #3c3;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .close-alert {
+            margin-left: auto;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .terms {
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .terms a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📈</div>
+        <h2>Create Account</h2>
+        <div class="subtitle">Start your trading journey today</div>
+        
+        <div id="alertContainer"></div>
+        
+        <form id="signupForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>Full Name <span class="required">*</span></label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    placeholder="Enter your full name"
+                    autocomplete="name"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label>Email Address <span class="required">*</span></label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label>Password <span class="required">*</span></label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        placeholder="Create a password"
+                        autocomplete="new-password"
+                        required
+                        onkeyup="checkPasswordStrength()"
+                    >
+                    <span class="toggle-password" onclick="togglePassword('password')">👁️</span>
+                </div>
+                <div class="password-strength">
+                    <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                </div>
+                <div class="password-strength-text" id="passwordStrengthText"></div>
+            </div>
+            
+            <div class="form-group">
+                <label>Confirm Password <span class="required">*</span></label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="confirmPassword" 
+                        placeholder="Confirm your password"
+                        autocomplete="off"
+                        required
+                    >
+                    <span class="toggle-password" onclick="togglePassword('confirmPassword')">👁️</span>
+                </div>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="marginEnabled">
+                <label for="marginEnabled">
+                    Enable Margin Trading
+                    <span style="display: block; font-size: 12px; color: #888; margin-top: 4px;">
+                        Allows you to trade with borrowed funds (higher risk, higher reward)
+                    </span>
+                </label>
+            </div>
+            
+            <div class="checkbox-group">
+                <input type="checkbox" id="termsAccepted" required>
+                <label for="termsAccepted">
+                    I agree to the <a href="#" onclick="return false;">Terms of Service</a> and <a href="#" onclick="return false;">Privacy Policy</a>
+                    <span class="required">*</span>
+                </label>
+            </div>
+            
+            <button type="submit" id="signupBtn" onclick="handleSignUp()">
+                Create Account
+            </button>
+        </form>
+        
+        <hr>
+        
+        <div class="links">
+            <a href="signin.html">Already have an account? Sign In</a>
+        </div>
+        
+        <div class="terms">
+            By signing up, you agree to receive account verification emails
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        //const API_BASE_URL = 'https://localhost:7239';
+        const API_BASE_URL = 'https://44.195.136.91:7239'; // UPDATE THIS WITH YOUR ACTUAL API URL
+        
+        // Storage keys
+        const STORAGE_KEYS = {
+            TOKEN: 'jwt_token',
+            USER_EMAIL: 'user_email',
+            USER_NAME: 'user_name'
+        };
+        
+        // Helper functions
+        function showAlert(message, type = 'error') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertId = 'alert_' + Date.now();
+            
+            const icons = {
+                error: '❌',
+                success: '✅',
+                info: 'ℹ️'
+            };
+            
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type}">
+                    <span>${icons[type] || '⚠️'}</span>
+                    <span>${message}</span>
+                    <span class="close-alert" onclick="closeAlert('${alertId}')">×</span>
+                </div>
+            `;
+            
+            alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+            
+            // Auto close after 5 seconds
+            setTimeout(() => {
+                closeAlert(alertId);
+            }, 5000);
+        }
+        
+        function closeAlert(alertId) {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }
+        
+        function clearAlerts() {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = '';
+        }
+        
+        function setLoading(loading) {
+            const btn = document.getElementById('signupBtn');
+            if (loading) {
+                btn.disabled = true;
+                btn.textContent = 'Creating Account...';
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Create Account';
+            }
+        }
+        
+        function togglePassword(fieldId) {
+            const passwordInput = document.getElementById(fieldId);
+            const toggleBtn = event.target;
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+        
+        // Password strength checker
+        function checkPasswordStrength() {
+            const password = document.getElementById('password').value;
+            const strengthBar = document.getElementById('passwordStrengthBar');
+            const strengthText = document.getElementById('passwordStrengthText');
+            
+            let strength = 0;
+            let message = '';
+            
+            if (password.length === 0) {
+                strengthBar.style.width = '0%';
+                strengthText.textContent = '';
+                return;
+            }
+            
+            // Length check
+            if (password.length >= 8) strength += 25;
+            else if (password.length >= 6) strength += 15;
+            
+            // Contains lowercase
+            if (password.match(/[a-z]+/)) strength += 25;
+            
+            // Contains uppercase
+            if (password.match(/[A-Z]+/)) strength += 25;
+            
+            // Contains numbers
+            if (password.match(/[0-9]+/)) strength += 15;
+            
+            // Contains special characters
+            if (password.match(/[$@#&!]+/)) strength += 10;
+            
+            // Determine color and message
+            if (strength < 30) {
+                strengthBar.style.backgroundColor = '#f44';
+                message = 'Weak password';
+            } else if (strength < 60) {
+                strengthBar.style.backgroundColor = '#ffa500';
+                message = 'Fair password';
+            } else if (strength < 80) {
+                strengthBar.style.backgroundColor = '#2196f3';
+                message = 'Good password';
+            } else {
+                strengthBar.style.backgroundColor = '#10b981';
+                message = 'Strong password';
+            }
+            
+            strengthBar.style.width = strength + '%';
+            strengthText.textContent = message;
+        }
+        
+        // Validate email format
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+        
+        // Validate form
+        function validateForm(name, email, password, confirmPassword, termsAccepted) {
+            if (!name || !email || !password || !confirmPassword) {
+                showAlert('Please fill in all required fields', 'error');
+                return false;
+            }
+            
+            if (name.length < 2) {
+                showAlert('Name must be at least 2 characters long', 'error');
+                return false;
+            }
+            
+            if (!isValidEmail(email)) {
+                showAlert('Please enter a valid email address', 'error');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showAlert('Password must be at least 6 characters long', 'error');
+                return false;
+            }
+            
+            if (password !== confirmPassword) {
+                showAlert('Passwords do not match', 'error');
+                return false;
+            }
+            
+            if (!termsAccepted) {
+                showAlert('Please accept the Terms of Service and Privacy Policy', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Main sign up function
+        async function handleSignUp() {
+            const name = document.getElementById('name').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const marginEnabled = document.getElementById('marginEnabled').checked;
+            const termsAccepted = document.getElementById('termsAccepted').checked;
+            
+            // Clear previous alerts
+            clearAlerts();
+            
+            // Validate form
+            if (!validateForm(name, email, password, confirmPassword, termsAccepted)) {
+                return;
+            }
+            
+            // Set loading state
+            setLoading(true);
+            
+            try {
+                // Make API call to signup endpoint
+                const response = await fetch(`${API_BASE_URL}/api/Account/signup`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        NAME: name,
+                        EMAIL: email,
+                        PASSWORD: password,
+                        MARGINENABLED: marginEnabled
+                    })
+                });
+                
+                // Handle response
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Show success message
+                    showAlert(
+                        'Account created successfully! Please check your email for verification link. You will be redirected to login page.', 
+                        'success'
+                    );
+                    
+                    // Clear form
+                    document.getElementById('signupForm').reset();
+                    document.getElementById('passwordStrengthBar').style.width = '0%';
+                    document.getElementById('passwordStrengthText').textContent = '';
+                    
+                    // Redirect to signin page after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = 'signin.html';
+                    }, 3000);
+                    
+                } else if (response.status === 400) {
+                    const errorText = await response.text();
+                    if (errorText.includes('already exists') || errorText.toLowerCase().includes('duplicate')) {
+                        showAlert('An account with this email already exists. Please sign in instead.', 'error');
+                    } else if (errorText.includes('invalid') || errorText.includes('valid')) {
+                        showAlert('Please enter valid information.', 'error');
+                    } else {
+                        showAlert(errorText || 'Registration failed. Please check your information.', 'error');
+                    }
+                } else if (response.status === 409) {
+                    showAlert('Email already registered. Please use a different email or sign in.', 'error');
+                } else {
+                    const errorText = await response.text();
+                    showAlert(errorText || 'Registration failed. Please try again.', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Sign up error:', error);
+                
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    showAlert('Cannot connect to server. Please check if the API server is running.', 'error');
+                } else {
+                    showAlert('Network error. Please check your internet connection.', 'error');
+                }
+                
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        // Add enter key support
+        function setupEnterKey() {
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSignUp();
+                    }
+                });
+            });
+        }
+        
+        // Real-time password match validation
+        function setupPasswordMatchValidation() {
+            const password = document.getElementById('password');
+            const confirmPassword = document.getElementById('confirmPassword');
+            
+            function validateMatch() {
+                if (confirmPassword.value.length > 0) {
+                    if (password.value !== confirmPassword.value) {
+                        confirmPassword.setCustomValidity('Passwords do not match');
+                        confirmPassword.style.borderColor = '#f44';
+                    } else {
+                        confirmPassword.setCustomValidity('');
+                        confirmPassword.style.borderColor = '#10b981';
+                    }
+                } else {
+                    confirmPassword.style.borderColor = '#e0e0e0';
+                }
+            }
+            
+            password.addEventListener('keyup', validateMatch);
+            confirmPassword.addEventListener('keyup', validateMatch);
+        }
+        
+        // Real-time email validation
+        function setupEmailValidation() {
+            const email = document.getElementById('email');
+            
+            email.addEventListener('blur', function() {
+                if (email.value && !isValidEmail(email.value)) {
+                    email.style.borderColor = '#f44';
+                    showAlert('Please enter a valid email address', 'error');
+                    setTimeout(() => clearAlerts(), 3000);
+                } else if (email.value && isValidEmail(email.value)) {
+                    email.style.borderColor = '#10b981';
+                } else {
+                    email.style.borderColor = '#e0e0e0';
+                }
+            });
+        }
+        
+        // Initialize page
+        function init() {
+            setupEnterKey();
+            setupPasswordMatchValidation();
+            setupEmailValidation();
+        }
+        
+        // Start the page
+        init();
+    </script>
+</body>
+</html>

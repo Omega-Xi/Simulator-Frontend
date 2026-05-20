@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Sign In - Stock Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 450px;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        label i {
+            margin-right: 8px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        input:hover {
+            border-color: #999;
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            user-select: none;
+            color: #999;
+            font-size: 18px;
+        }
+
+        .toggle-password:hover {
+            color: #667eea;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .links {
+            margin-top: 25px;
+            text-align: center;
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .links a {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+
+        .links a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-10px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .alert-error {
+            background: #fee;
+            color: #c33;
+            border-left: 4px solid #c33;
+        }
+
+        .alert-success {
+            background: #efe;
+            color: #3c3;
+            border-left: 4px solid #3c3;
+        }
+
+        .alert-info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border-left: 4px solid #1976d2;
+        }
+
+        .close-alert {
+            margin-left: auto;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .remember-me input {
+            width: auto;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .remember-me label {
+            margin-bottom: 0;
+            cursor: pointer;
+            font-weight: normal;
+        }
+
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .demo-credentials {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h2 {
+                font-size: 24px;
+            }
+            
+            .links {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📈</div>
+        <h2>Welcome Back</h2>
+        <div class="subtitle">Sign in to continue trading</div>
+        
+        <div id="alertContainer"></div>
+        
+        <form id="signinForm" onsubmit="return false;">
+            <div class="form-group">
+                <label>📧 Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    placeholder="Enter your email"
+                    autocomplete="email"
+                    required
+                >
+            </div>
+            
+            <div class="form-group">
+                <label>🔒 Password</label>
+                <div class="password-wrapper">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        placeholder="Enter your password"
+                        autocomplete="current-password"
+                        required
+                    >
+                    <span class="toggle-password" onclick="togglePassword()">👁️</span>
+                </div>
+            </div>
+            
+            <div class="remember-me">
+                <input type="checkbox" id="rememberMe">
+                <label for="rememberMe">Remember me</label>
+            </div>
+            
+            <button type="submit" id="signinBtn" onclick="handleSignIn()">
+                Sign In
+            </button>
+        </form>
+        
+        <div class="links">
+            <a href="forgot-password.html">Forgot Password?</a>
+            <a href="signup.html">Create New Account</a>
+        </div>
+        
+        <hr>
+        
+        <div class="demo-credentials">
+            💡 Demo Credentials (if available):<br>
+            Email: demo@example.com | Password: demo123
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        //const API_BASE_URL = 'https://localhost:7239';
+        const API_BASE_URL = 'https://44.195.136.91:7239'; // UPDATE THIS WITH YOUR ACTUAL API URL
+        
+        // Storage keys
+        const STORAGE_KEYS = {
+            TOKEN: 'jwt_token',
+            USER_EMAIL: 'user_email',
+            USER_NAME: 'user_name',
+            REMEMBER_ME: 'remember_me'
+        };
+        
+        // Helper functions
+        function showAlert(message, type = 'error') {
+            const alertContainer = document.getElementById('alertContainer');
+            const alertId = 'alert_' + Date.now();
+            
+            const icons = {
+                error: '❌',
+                success: '✅',
+                info: 'ℹ️'
+            };
+            
+            const alertHtml = `
+                <div id="${alertId}" class="alert alert-${type}">
+                    <span>${icons[type] || '⚠️'}</span>
+                    <span>${message}</span>
+                    <span class="close-alert" onclick="closeAlert('${alertId}')">×</span>
+                </div>
+            `;
+            
+            alertContainer.insertAdjacentHTML('beforeend', alertHtml);
+            
+            // Auto close after 5 seconds
+            setTimeout(() => {
+                closeAlert(alertId);
+            }, 5000);
+        }
+        
+        function closeAlert(alertId) {
+            const alert = document.getElementById(alertId);
+            if (alert) {
+                alert.remove();
+            }
+        }
+        
+        function clearAlerts() {
+            const alertContainer = document.getElementById('alertContainer');
+            alertContainer.innerHTML = '';
+        }
+        
+        function setLoading(loading) {
+            const btn = document.getElementById('signinBtn');
+            if (loading) {
+                btn.disabled = true;
+                btn.textContent = 'Signing in...';
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Sign In';
+            }
+        }
+        
+        function saveToLocalStorage(token, email) {
+            localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+            localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+            
+            // Try to decode JWT to get user info
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.email) {
+                    localStorage.setItem(STORAGE_KEYS.USER_EMAIL, payload.email);
+                }
+                if (payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']) {
+                    localStorage.setItem('user_id', payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']);
+                }
+            } catch (e) {
+                console.log('Could not decode JWT');
+            }
+        }
+        
+        function loadSavedCredentials() {
+            const rememberMe = localStorage.getItem(STORAGE_KEYS.REMEMBER_ME);
+            if (rememberMe === 'true') {
+                const savedEmail = localStorage.getItem(STORAGE_KEYS.USER_EMAIL);
+                if (savedEmail) {
+                    document.getElementById('email').value = savedEmail;
+                    document.getElementById('rememberMe').checked = true;
+                }
+            }
+        }
+        
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleBtn = document.querySelector('.toggle-password');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleBtn.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleBtn.textContent = '👁️';
+            }
+        }
+        
+        // Validate form
+        function validateForm(email, password) {
+            if (!email || !password) {
+                showAlert('Please fill in all fields', 'error');
+                return false;
+            }
+            
+            if (!email.includes('@') || !email.includes('.')) {
+                showAlert('Please enter a valid email address', 'error');
+                return false;
+            }
+            
+            if (password.length < 6) {
+                showAlert('Password must be at least 6 characters', 'error');
+                return false;
+            }
+            
+            return true;
+        }
+        
+        // Handle remember me
+        function handleRememberMe(rememberMe, email) {
+            if (rememberMe) {
+                localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+                localStorage.setItem(STORAGE_KEYS.USER_EMAIL, email);
+            } else {
+                localStorage.removeItem(STORAGE_KEYS.REMEMBER_ME);
+                localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
+            }
+        }
+        
+        // Main sign in function
+        async function handleSignIn() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+            const rememberMe = document.getElementById('rememberMe').checked;
+            
+            // Clear previous alerts
+            clearAlerts();
+            
+            // Validate form
+            if (!validateForm(email, password)) {
+                return;
+            }
+            
+            // Set loading state
+            setLoading(true);
+            
+            try {
+                // Make API call to signin endpoint
+                const response = await fetch(`${API_BASE_URL}/api/Account/signin`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        EMAIL: email,
+                        PASSWORD: password
+                    })
+                });
+                
+                // Handle response
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Extract token from response - matches your API format: { "TOKEN": "..." }
+                    const token = data.TOKEN || data.token || data.accessToken;
+                    
+                    if (!token) {
+                        throw new Error('No token received from server');
+                    }
+                    
+                    // Save to localStorage
+                    saveToLocalStorage(token, email);
+                    handleRememberMe(rememberMe, email);
+                    
+                    // Show success message
+                    showAlert('Login successful! Redirecting to dashboard...', 'success');
+                    
+                    // Redirect to dashboard after short delay
+                    setTimeout(() => {
+                        window.location.href = 'dashboard.html';
+                    }, 1500);
+                    
+                } else if (response.status === 401) {
+                    const errorData = await response.text();
+                    if (errorData.includes('verify') || errorData.toLowerCase().includes('email')) {
+                        showAlert('Please verify your email before signing in. Check your inbox.', 'info');
+                    } else if (errorData.includes('approve') || errorData.toLowerCase().includes('admin')) {
+                        showAlert('Your account is pending admin approval. You will be notified once approved.', 'info');
+                    } else {
+                        showAlert('Invalid email or password. Please try again.', 'error');
+                    }
+                } else if (response.status === 403) {
+                    showAlert('Account is locked. Please contact support.', 'error');
+                } else if (response.status === 429) {
+                    showAlert('Too many attempts. Please try again later.', 'error');
+                } else {
+                    const errorText = await response.text();
+                    showAlert(errorText || 'Login failed. Please try again.', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Sign in error:', error);
+                
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    showAlert('Cannot connect to server. Please check if the API server is running.', 'error');
+                } else {
+                    showAlert('Network error. Please check your internet connection.', 'error');
+                }
+                
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        // Check if already logged in
+        function checkExistingSession() {
+            const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+            if (token) {
+                // Optional: Validate token with server
+                // For now, just redirect to dashboard
+                window.location.href = 'dashboard.html';
+            }
+        }
+        
+        // Add enter key support
+        function setupEnterKey() {
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSignIn();
+                    }
+                });
+            });
+        }
+        
+        // Decode and display JWT info (for debugging)
+        function debugJWT(token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                console.log('JWT Payload:', payload);
+                console.log('User ID:', payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']);
+                console.log('Email:', payload.email);
+                console.log('Token Version:', payload.tokenVersion);
+                console.log('Expires:', new Date(payload.exp * 1000));
+                return payload;
+            } catch (e) {
+                console.error('Failed to decode JWT:', e);
+                return null;
+            }
+        }
+        
+        // Initialize page
+        function init() {
+            loadSavedCredentials();
+            setupEnterKey();
+            // Uncomment to check existing session
+            // checkExistingSession();
+        }
+        
+        // Start the page
+        init();
+    </script>
+</body>
+</html>
