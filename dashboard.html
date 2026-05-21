@@ -20,11 +20,32 @@
             overflow-x: hidden;
         }
 
+        /* Custom Scrollbar - Professional & Hidden */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 3px;
+            transition: all 0.2s;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.8);
+        }
+
         /* Header Styles */
         .header {
             background: white;
-            padding: 15px 30px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            padding: 12px 30px;
+            box-shadow: 0 1px 10px rgba(0,0,0,0.05);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -36,7 +57,7 @@
         }
 
         .logo {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: bold;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
@@ -46,7 +67,7 @@
 
         .user-menu {
             display: flex;
-            gap: 20px;
+            gap: 15px;
             align-items: center;
             flex-wrap: wrap;
         }
@@ -54,7 +75,7 @@
         .user-info {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             cursor: pointer;
             padding: 5px 10px;
             border-radius: 8px;
@@ -66,8 +87,8 @@
         }
 
         .user-avatar {
-            width: 35px;
-            height: 35px;
+            width: 32px;
+            height: 32px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             display: flex;
@@ -75,14 +96,14 @@
             justify-content: center;
             color: white;
             font-weight: bold;
+            font-size: 14px;
         }
 
         .user-email {
             color: #666;
-            font-size: 14px;
+            font-size: 13px;
         }
 
-        /* Quick Actions Button */
         .quick-actions {
             position: relative;
         }
@@ -90,15 +111,16 @@
         .quick-action-btn {
             background: #f0f0f0;
             border: none;
-            padding: 8px 16px;
+            padding: 6px 14px;
             border-radius: 8px;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             color: #555;
             transition: all 0.2s;
             display: flex;
             align-items: center;
             gap: 8px;
+            font-size: 13px;
         }
 
         .quick-action-btn:hover {
@@ -110,7 +132,7 @@
             position: absolute;
             top: 100%;
             right: 0;
-            width: 280px;
+            width: 260px;
             background: white;
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
@@ -123,6 +145,30 @@
         .quick-dropdown.show {
             display: block;
             animation: fadeInDown 0.2s ease;
+        }
+        /* Checkbox Group Styles */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .checkbox-group label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+            color: #555;
+            font-size: 13px;
+            line-height: 1.4;
         }
 
         @keyframes fadeInDown {
@@ -137,12 +183,13 @@
         }
 
         .dropdown-item {
-            padding: 12px 16px;
+            padding: 10px 16px;
             cursor: pointer;
             transition: background 0.2s;
             display: flex;
             align-items: center;
             gap: 10px;
+            font-size: 13px;
         }
 
         .dropdown-item:hover {
@@ -150,7 +197,7 @@
         }
 
         .dropdown-item i {
-            width: 20px;
+            width: 18px;
             color: #667eea;
         }
 
@@ -177,9 +224,9 @@
             padding: 20px;
             border-radius: 12px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            height: calc(100vh - 100px);
+            height: calc(100vh - 90px);
             position: sticky;
-            top: 80px;
+            top: 70px;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -189,21 +236,22 @@
         .order-tabs {
             display: flex;
             gap: 5px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             border-bottom: 2px solid #e0e0e0;
             flex-shrink: 0;
         }
 
         .tab-btn {
             flex: 1;
-            padding: 10px;
+            padding: 8px;
             background: none;
             border: none;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             color: #666;
             transition: all 0.3s;
             border-radius: 8px 8px 0 0;
+            font-size: 13px;
         }
 
         .tab-btn:hover {
@@ -264,7 +312,7 @@
         }
 
         .selected-symbol span {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
             color: #667eea;
         }
@@ -272,15 +320,15 @@
         /* Big Buy/Sell Buttons */
         .big-action-buttons {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             margin-bottom: 20px;
         }
 
         .big-btn {
             flex: 1;
-            padding: 20px 15px;
+            padding: 16px 12px;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.3s;
@@ -294,7 +342,7 @@
 
         .big-btn-buy:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+            box-shadow: 0 5px 15px rgba(16, 185, 129, 0.3);
         }
 
         .big-btn-sell {
@@ -304,18 +352,18 @@
 
         .big-btn-sell:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(239, 68, 68, 0.3);
+            box-shadow: 0 5px 15px rgba(239, 68, 68, 0.3);
         }
 
         .big-btn-price {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
         }
 
         .big-btn-type {
-            font-size: 12px;
+            font-size: 11px;
             opacity: 0.9;
-            margin-top: 5px;
+            margin-top: 4px;
         }
 
         /* Advanced Options Toggle */
@@ -323,11 +371,11 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
+            padding: 10px 0;
             cursor: pointer;
             color: #667eea;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: 500;
+            font-size: 13px;
             border-top: 1px solid #e0e0e0;
             margin-top: 10px;
         }
@@ -360,23 +408,23 @@
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
+            margin-bottom: 6px;
+            font-weight: 500;
             color: #555;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         select, input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 8px 10px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             transition: all 0.3s;
         }
 
@@ -389,7 +437,7 @@
         .quantity-control {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
             background: white;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
@@ -397,11 +445,11 @@
         }
 
         .qty-btn {
-            width: 44px;
-            height: 44px;
+            width: 36px;
+            height: 36px;
             background: #f8f9fa;
             border: none;
-            font-size: 20px;
+            font-size: 18px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s;
@@ -412,27 +460,19 @@
             background: #e9ecef;
         }
 
-        .qty-btn:active {
-            transform: scale(0.95);
-        }
-
         .quantity-input {
             flex: 1;
             border: none !important;
             text-align: center;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
-            padding: 10px;
-        }
-
-        .quantity-input:focus {
-            outline: none;
+            padding: 8px;
         }
 
         .lot-info {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
-            margin-top: 5px;
+            margin-top: 4px;
             text-align: right;
         }
 
@@ -448,18 +488,18 @@
 
         .quick-multiples {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             margin-top: 8px;
             flex-wrap: wrap;
         }
 
         .quick-lot-btn {
             flex: 1;
-            padding: 6px 10px;
+            padding: 5px 8px;
             background: #f0f0f0;
             border: none;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             cursor: pointer;
             transition: all 0.2s;
             font-weight: 500;
@@ -468,22 +508,22 @@
         .quick-lot-btn:hover {
             background: #667eea;
             color: white;
-            transform: translateY(-1px);
         }
 
         .advanced-action-buttons {
             display: flex;
-            gap: 10px;
+            gap: 8px;
         }
 
         .advanced-action-btn {
             flex: 1;
-            padding: 10px;
+            padding: 8px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             transition: all 0.2s;
             text-align: center;
+            font-size: 13px;
         }
 
         .advanced-action-btn.buy {
@@ -510,20 +550,20 @@
 
         .btn-submit {
             width: 100%;
-            padding: 12px;
+            padding: 10px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
         }
 
         .btn-submit:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 15px rgba(102, 126, 234, 0.4);
         }
 
         /* Watchlist Styles */
@@ -625,9 +665,9 @@
         /* P&L Summary Card */
         .pnl-summary {
             background: linear-gradient(135deg, #1a1f2c 0%, #0d111a 100%);
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 20px;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 15px;
             cursor: pointer;
             transition: all 0.3s;
             flex-shrink: 0;
@@ -635,7 +675,7 @@
 
         .pnl-summary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
         .pnl-summary-header {
@@ -646,12 +686,12 @@
         }
 
         .pnl-total-label {
-            font-size: 14px;
+            font-size: 11px;
             opacity: 0.8;
         }
 
         .pnl-total-value {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
         }
 
@@ -675,40 +715,41 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.05);
             overflow: hidden;
             position: sticky;
-            top: 80px;
+            top: 70px;
         }
 
         .chart-header {
-            padding: 20px 25px;
+            padding: 15px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
         }
 
         .chart-header h2 {
-            font-size: 20px;
+            font-size: 18px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .chart-controls {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
             flex-wrap: wrap;
         }
 
         .chart-controls select {
-            padding: 8px 15px;
+            padding: 6px 12px;
             background: rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.3);
             color: white;
             cursor: pointer;
+            font-size: 12px;
         }
 
         .chart-controls select option {
@@ -718,21 +759,21 @@
         .current-price-box {
             display: flex;
             align-items: baseline;
-            gap: 15px;
+            gap: 10px;
             background: rgba(255,255,255,0.15);
-            padding: 8px 16px;
-            border-radius: 12px;
+            padding: 6px 12px;
+            border-radius: 10px;
         }
 
         .current-price {
-            font-size: 28px;
+            font-size: 22px;
             font-weight: bold;
         }
 
         .price-change {
-            font-size: 14px;
-            padding: 4px 8px;
-            border-radius: 8px;
+            font-size: 12px;
+            padding: 2px 6px;
+            border-radius: 6px;
         }
 
         .price-change.positive {
@@ -748,9 +789,9 @@
         .ws-status {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            padding: 4px 12px;
+            gap: 6px;
+            font-size: 11px;
+            padding: 3px 10px;
             border-radius: 20px;
             background: rgba(255,255,255,0.2);
         }
@@ -764,8 +805,8 @@
         }
 
         .status-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background: white;
             animation: pulse 2s infinite;
@@ -777,13 +818,13 @@
         }
 
         .chart-container {
-            padding: 25px;
-            height: 500px;
+            padding: 20px;
+            height: 480px;
             position: relative;
         }
 
         canvas {
-            max-height: 450px;
+            max-height: 440px;
             width: 100%;
         }
 
@@ -807,7 +848,7 @@
         }
 
         .panel-header {
-            padding: 20px 25px;
+            padding: 15px 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             display: flex;
@@ -816,30 +857,24 @@
         }
 
         .panel-header h2 {
-            font-size: 20px;
+            font-size: 18px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .panel-close {
             background: none;
             border: none;
             color: white;
-            font-size: 24px;
+            font-size: 22px;
             cursor: pointer;
-            padding: 5px;
-            transition: opacity 0.2s;
-        }
-
-        .panel-close:hover {
-            opacity: 0.8;
         }
 
         .panel-content {
             flex: 1;
             overflow-y: auto;
-            padding: 25px;
+            padding: 20px;
         }
 
         .panel-overlay {
@@ -860,7 +895,7 @@
         /* Panel Content Styles */
         .info-box {
             background: #f8f9fa;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
             margin-bottom: 20px;
         }
@@ -868,8 +903,9 @@
         .info-row {
             display: flex;
             justify-content: space-between;
-            padding: 10px 0;
+            padding: 8px 0;
             border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
         }
 
         .info-row:last-child {
@@ -881,34 +917,42 @@
             color: #555;
         }
 
+        .positive {
+            color: #10b981;
+        }
+
+        .negative {
+            color: #ef4444;
+        }
+
         .info-value {
             color: #333;
         }
 
         .panel-section {
-            margin-bottom: 30px;
+            margin-bottom: 25px;
         }
 
         .panel-section h3 {
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             color: #333;
-            font-size: 16px;
+            font-size: 15px;
         }
 
         .orderbook-filters {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 8px;
+            margin-bottom: 15px;
             flex-wrap: wrap;
         }
 
         .orderbook-filter-btn {
-            padding: 8px 16px;
+            padding: 6px 12px;
             background: #f0f0f0;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: all 0.2s;
+            font-size: 12px;
         }
 
         .orderbook-filter-btn.active {
@@ -922,7 +966,7 @@
         }
 
         .order-item {
-            padding: 15px;
+            padding: 12px;
             border-bottom: 1px solid #e0e0e0;
             cursor: pointer;
             transition: background 0.2s;
@@ -934,22 +978,72 @@
 
         .order-symbol {
             font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 5px;
+            font-size: 14px;
+            margin-bottom: 8px;
         }
 
         .order-details {
-            font-size: 13px;
+            font-size: 12px;
             color: #666;
+        }
+
+        .order-detail-row {
             display: flex;
-            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .order-modify-btn, .order-cancel-btn, .order-view-btn {
+            padding: 4px 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-flex;
             align-items: center;
+            gap: 4px;
+        }
+
+        .order-modify-btn {
+            background: #2196f3;
+            color: white;
+        }
+
+        .order-modify-btn:hover {
+            background: #1976d2;
+        }
+
+        .order-cancel-btn {
+            background: #f44;
+            color: white;
+        }
+
+        .order-cancel-btn:hover {
+            background: #d33;
+        }
+
+        .order-view-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .order-view-btn:hover {
+            background: #5a67d8;
         }
 
         .status-badge {
-            padding: 4px 8px;
+            padding: 2px 8px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
         }
 
@@ -968,20 +1062,147 @@
             color: #721c24;
         }
 
+        .status-TriggerPending {
+            background: #e7e5ff;
+            color: #6d28d9;
+        }
+
+        /* Panel Modify Modal */
+        .panel-modify-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .panel-modify-modal.show {
+            display: flex;
+        }
+
+        .panel-modify-content {
+            background: white;
+            border-radius: 12px;
+            width: 400px;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+        }
+
+        .panel-modify-header {
+            padding: 15px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 12px 12px 0 0;
+        }
+
+        .panel-modify-body {
+            padding: 20px;
+        }
+
+        .panel-modify-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .panel-modify-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            padding: 10px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+
+        /* Session Modal */
+        .session-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .session-modal.show {
+            display: flex;
+        }
+
+        .session-modal-content {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .session-modal-icon {
+            font-size: 56px;
+            color: #f44;
+            margin-bottom: 15px;
+        }
+
+        .session-modal h3 {
+            font-size: 22px;
+            margin-bottom: 8px;
+        }
+
+        .session-modal p {
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .session-modal button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
         /* Notification Toast */
         .notification-toast {
             position: fixed;
-            top: 80px;
+            top: 70px;
             right: 20px;
             background: white;
             border-left: 4px solid #10b981;
-            padding: 15px 20px;
+            padding: 12px 18px;
             border-radius: 8px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.15);
             z-index: 1100;
             transform: translateX(400px);
             transition: transform 0.3s ease;
-            max-width: 350px;
+            max-width: 320px;
         }
 
         .notification-toast.show {
@@ -1002,57 +1223,41 @@
 
         .notification-title {
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
+            font-size: 13px;
         }
 
         .notification-message {
-            font-size: 13px;
+            font-size: 12px;
             color: #666;
         }
 
         /* P&L Popup */
-        .pnl-popup {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            max-width: 400px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            z-index: 1060;
-            transform: translateY(100%);
-            transition: transform 0.3s ease;
-            overflow: hidden;
-        }
-
-        .pnl-popup.show {
-            transform: translateY(0);
-        }
 
         .pnl-popup-header {
-            padding: 15px 20px;
+            padding: 12px 18px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             display: flex;
             justify-content: space-between;
             align-items: center;
             cursor: pointer;
+            font-size: 14px;
         }
 
         .pnl-popup-close {
             cursor: pointer;
-            font-size: 20px;
+            font-size: 18px;
         }
 
         .pnl-popup-content {
-            padding: 15px;
-            max-height: 400px;
+            padding: 12px;
+            max-height: 350px;
             overflow-y: auto;
         }
 
         .popup-position {
-            padding: 12px;
+            padding: 10px;
             border-bottom: 1px solid #e0e0e0;
             cursor: pointer;
             transition: all 0.2s;
@@ -1060,19 +1265,19 @@
 
         .popup-position:hover {
             background: #f8f9fa;
-            transform: translateX(5px);
+            transform: translateX(3px);
         }
 
         .popup-symbol {
             font-weight: bold;
-            font-size: 14px;
+            font-size: 13px;
             display: flex;
             justify-content: space-between;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .popup-details {
-            font-size: 12px;
+            font-size: 11px;
             color: #666;
             display: flex;
             justify-content: space-between;
@@ -1102,11 +1307,11 @@
         <div class="user-menu">
             <div class="quick-actions">
                 <button class="quick-action-btn" onclick="toggleQuickDropdown()">
-                    <i class="fas fa-bolt"></i> Quick Actions
+                    <i class="fas fa-bolt"></i> Quick
                 </button>
                 <div id="quickDropdown" class="quick-dropdown">
                     <div class="dropdown-item" onclick="openPanel('account')">
-                        <i class="fas fa-user-circle"></i> Account Settings
+                        <i class="fas fa-user-circle"></i> Account
                     </div>
                     <div class="dropdown-item" onclick="openPanel('orderbook')">
                         <i class="fas fa-receipt"></i> Order Book
@@ -1244,10 +1449,9 @@
             </div>
             
             <!-- P&L Summary Card -->
-            <div class="pnl-summary" onclick="togglePnLPopup()">
+            <div class="pnl-summary">
                 <div class="pnl-summary-header">
                     <span class="pnl-total-label">💰 Total Unrealized P&L</span>
-                    <span class="pnl-expand-icon" id="pnlExpandIcon">▲</span>
                 </div>
                 <div class="pnl-total-value" id="totalPnlValue">₹0.00</div>
             </div>
@@ -1268,7 +1472,7 @@
                         </div>
                         <div class="ws-status disconnected" id="wsStatus">
                             <span class="status-dot"></span>
-                            <span>Disconnected</span>
+                            <span>Live</span>
                         </div>
                     </div>
                 </div>
@@ -1279,31 +1483,73 @@
         </div>
     </div>
 
-    <!-- P&L Popup -->
-    <div class="pnl-popup" id="pnlPopup">
-        <div class="pnl-popup-header">
-            <span>📊 Active Positions & Detailed P&L</span>
-            <span class="pnl-popup-close" onclick="closePnLPopup()">✕</span>
-        </div>
-        <div class="pnl-popup-content" id="pnlPopupContent">
-            Loading positions...
-        </div>
-    </div>
-
     <!-- Sliding Panel Overlay -->
     <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
     
     <!-- Sliding Panel -->
     <div class="slide-panel" id="slidePanel">
         <div class="panel-header">
-            <h2 id="panelTitle"><i class="fas fa-user-circle"></i> Account Settings</h2>
+            <h2 id="panelTitle"><i class="fas fa-user-circle"></i> Account</h2>
             <button class="panel-close" onclick="closePanel()">✕</button>
         </div>
         <div class="panel-content" id="panelContent">
             <div style="text-align: center; padding: 40px;">
-                <i class="fas fa-spinner fa-spin" style="font-size: 32px; color: #667eea;"></i>
+                <i class="fas fa-spinner fa-spin" style="font-size: 28px; color: #667eea;"></i>
                 <p style="margin-top: 10px;">Loading...</p>
             </div>
+        </div>
+    </div>
+
+    <!-- Panel Modify Modal -->
+    <div id="panelModifyModal" class="panel-modify-modal">
+        <div class="panel-modify-content">
+            <div class="panel-modify-header">
+                <h3>✏️ Modify Order</h3>
+                <button class="panel-modify-close" onclick="closeModifyModal()">✕</button>
+            </div>
+            <div class="panel-modify-body">
+                <div class="form-group">
+                    <label>Order ID</label>
+                    <input type="text" id="modifyOrderId" readonly style="background:#f5f5f5; font-size:12px;">
+                </div>
+                <div class="form-group">
+                    <label>Symbol</label>
+                    <input type="text" id="modifySymbol" readonly style="background:#f5f5f5;">
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="modifyQuantity" step="1">
+                </div>
+                <div class="form-group">
+                    <label>Price (₹)</label>
+                    <input type="number" id="modifyPrice" step="0.05">
+                </div>
+                <div class="form-group">
+                    <label>Trigger Price (₹)</label>
+                    <input type="number" id="modifyTriggerPrice" step="0.05">
+                </div>
+                <div class="form-group">
+                    <label>Validity</label>
+                    <select id="modifyValidity">
+                        <option value="day">Day</option>
+                        <option value="IOC">Immediate or Cancel (IOC)</option>
+                    </select>
+                </div>
+                <div class="panel-modify-actions">
+                    <button class="btn-submit" onclick="submitModifyFromPanel()">Update Order</button>
+                    <button class="btn-cancel" onclick="closeModifyModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Session Modal -->
+    <div id="sessionModal" class="session-modal">
+        <div class="session-modal-content">
+            <div class="session-modal-icon"><i class="fas fa-clock"></i></div>
+            <h3>Session Expired</h3>
+            <p>Your session has expired. Please login again.</p>
+            <button onclick="redirectToLogin()">Login Again</button>
         </div>
     </div>
 
@@ -1315,9 +1561,9 @@
 
     <script>
         // Configuration
-        const API_BASE_URL = 'https://44.195.136.91:7239'; // UPDATE THIS
-        const WS_BASE_URL = 'wss://44.195.136.91:7239'; // UPDATE THIS
-        const DEBUG_WEBSOCKET = true;
+        const API_BASE_URL = 'https://44.195.136.91:7239';
+        const WS_BASE_URL = 'wss://44.195.136.91:7239';
+        const DEBUG_WEBSOCKET = false;
         
         let currentAction = 'BUY';
         let advancedAction = 'BUY';
@@ -1342,6 +1588,7 @@
         // Panel state
         let currentPanelOrders = [];
         let currentPanelFilter = 'ALL';
+        let currentModifyOrder = null;
         
         // Get token
         const token = localStorage.getItem('jwt_token');
@@ -1356,7 +1603,7 @@
                 const payload = JSON.parse(atob(token.split('.')[1]));
                 const currentTime = Math.floor(Date.now() / 1000);
                 if (payload.exp && payload.exp < currentTime) {
-                    console.warn('Token expired');
+                    console.warn('Token expired at:', new Date(payload.exp * 1000));
                     return false;
                 }
                 return true;
@@ -1366,20 +1613,81 @@
             }
         }
         
-        if (!isTokenValid()) {
+        function getTokenRemainingTime() {
+            if (!token) return 0;
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const currentTime = Math.floor(Date.now() / 1000);
+                return Math.max(0, payload.exp - currentTime);
+            } catch (e) {
+                return 0;
+            }
+        }
+        
+        function showSessionExpiredModal() {
+            const modal = document.getElementById('sessionModal');
+            modal.classList.add('show');
+            if (ws) ws.close();
+        }
+        
+        function redirectToLogin() {
             localStorage.clear();
+            sessionStorage.clear();
             window.location.href = 'signin.html';
+        }
+        
+        // Check token on page load
+        if (!isTokenValid()) {
+            showSessionExpiredModal();
+        }
+        
+        // Periodic token check (every 30 seconds)
+        setInterval(() => {
+            if (!isTokenValid()) {
+                console.warn('Token expired during session');
+                showSessionExpiredModal();
+            }
+        }, 30000);
+        
+        // Show warning 2 minutes before expiry
+        setInterval(() => {
+            const remaining = getTokenRemainingTime();
+            if (remaining > 0 && remaining < 120) {
+                showNotification(`Session expires in ${Math.floor(remaining / 60)} minute(s)`, 'info');
+            }
+        }, 60000);
+        
+        // Authenticated fetch wrapper
+        async function authenticatedFetch(url, options = {}) {
+            if (!isTokenValid()) {
+                showSessionExpiredModal();
+                throw new Error('Session expired');
+            }
+            
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            if (response.status === 401) {
+                console.warn('API returned 401 - token invalid');
+                showSessionExpiredModal();
+                throw new Error('Unauthorized');
+            }
+            
+            return response;
         }
         
         // ============ TAB SWITCHING ============
         function switchTab(tabName) {
-            // Update tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
             
-            // Update content
             document.getElementById('orderTab').classList.remove('active');
             document.getElementById('pnlTab').classList.remove('active');
             document.getElementById('watchlistTab').classList.remove('active');
@@ -1388,7 +1696,7 @@
                 document.getElementById('orderTab').classList.add('active');
             } else if (tabName === 'pnl') {
                 document.getElementById('pnlTab').classList.add('active');
-                updateCompactPnLDisplay();
+                updateCompactPnLDisplay(); // This already exists
             } else if (tabName === 'watchlist') {
                 document.getElementById('watchlistTab').classList.add('active');
                 loadWatchlist();
@@ -1412,22 +1720,15 @@
             }
             
             let totalPnL = 0;
-            
             const positionsHtml = positions.map(pos => {
                 totalPnL += pos.pnl;
                 const pnlClass = pos.pnl >= 0 ? 'positive' : 'negative';
                 const pnlSymbol = pos.pnl >= 0 ? '+' : '';
-                
                 return `
                     <div class="popup-position" onclick="selectSymbolFromPopup('${pos.symbol}')">
                         <div class="popup-symbol">
-                            <span>
-                                <strong>${pos.symbol}</strong>
-                                <span style="font-size: 10px; margin-left: 8px; color: #666;">${pos.positionType}</span>
-                            </span>
-                            <span class="${pnlClass}" style="font-weight: bold;">
-                                ${pnlSymbol}₹${Math.abs(pos.pnl).toFixed(2)}
-                            </span>
+                            <span><strong>${pos.symbol}</strong> <span style="font-size: 10px;">${pos.positionType}</span></span>
+                            <span class="${pnlClass}">${pnlSymbol}₹${Math.abs(pos.pnl).toFixed(2)}</span>
                         </div>
                         <div class="popup-details">
                             <span>Qty: ${pos.quantity}</span>
@@ -1441,7 +1742,6 @@
             
             const totalClass = totalPnL >= 0 ? 'positive' : 'negative';
             const totalSymbol = totalPnL >= 0 ? '+' : '';
-            
             container.innerHTML = positionsHtml + `
                 <div style="background: #f0f0f0; padding: 12px; border-radius: 8px; margin-top: 10px;">
                     <div style="display: flex; justify-content: space-between; font-weight: bold;">
@@ -1454,7 +1754,6 @@
         
         // ============ WATCHLIST FUNCTIONS ============
         function loadWatchlist() {
-            // Load from localStorage
             const saved = localStorage.getItem('watchlist');
             if (saved) {
                 watchlist = JSON.parse(saved);
@@ -1462,10 +1761,8 @@
                 watchlist = [];
             }
             
-            // Populate add dropdown with stocks not in watchlist
             const addSelect = document.getElementById('addToWatchlist');
             const availableStocks = allStocks.filter(s => !watchlist.includes(s));
-            
             addSelect.innerHTML = '<option value="">+ Add Symbol to Watchlist</option>';
             availableStocks.forEach(stock => {
                 const option = document.createElement('option');
@@ -1487,13 +1784,10 @@
                 localStorage.setItem('watchlist', JSON.stringify(watchlist));
                 loadWatchlist();
                 showNotification('Watchlist', `Added ${symbol} to watchlist`, 'success');
-                
-                // Subscribe to this symbol via WebSocket
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     subscribeToSymbol(symbol);
                 }
             }
-            
             select.value = '';
         }
         
@@ -1506,25 +1800,16 @@
         
         function renderWatchlist() {
             const container = document.getElementById('watchlistItems');
-            
             if (watchlist.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-watchlist">
-                        <i class="fas fa-star"></i>
-                        <p>Your watchlist is empty</p>
-                        <small>Add symbols above to track them</small>
-                    </div>
-                `;
+                container.innerHTML = `<div class="empty-watchlist"><i class="fas fa-star"></i><p>Your watchlist is empty</p><small>Add symbols above to track them</small></div>`;
                 return;
             }
             
             container.innerHTML = watchlist.map(symbol => {
-                // Get current price from WebSocket data or use placeholder
                 const price = currentSymbol === symbol ? lastPrice : (activePositions[symbol]?.currentPrice || 1000);
-                const change = (Math.random() - 0.5) * 5; // Placeholder - replace with real data
+                const change = ((price - 1000) / 1000) * 100;
                 const changeClass = change >= 0 ? 'positive' : 'negative';
                 const changeSymbol = change >= 0 ? '+' : '';
-                
                 return `
                     <div class="watchlist-item" onclick="selectWatchlistSymbol('${symbol}')">
                         <div class="watchlist-info">
@@ -1548,22 +1833,13 @@
             showNotification('Symbol Changed', `Switched to ${symbol}`, 'success');
         }
         
-        // Update watchlist prices from WebSocket
-        function updateWatchlistPrice(symbol, price, change) {
-            const watchlistItems = document.querySelectorAll('.watchlist-item');
-            for (let item of watchlistItems) {
+        function updateWatchlistPrice(symbol, price) {
+            const items = document.querySelectorAll('.watchlist-item');
+            for (let item of items) {
                 const symbolSpan = item.querySelector('.watchlist-symbol');
                 if (symbolSpan && symbolSpan.textContent === symbol) {
                     const priceSpan = item.querySelector('.watchlist-price');
-                    const changeSpan = item.querySelector('.watchlist-change');
                     if (priceSpan) priceSpan.textContent = `₹${price.toFixed(2)}`;
-                    if (changeSpan) {
-                        const changePercent = ((price - 1000) / 1000) * 100; // Placeholder calculation
-                        const changeClass = changePercent >= 0 ? 'positive' : 'negative';
-                        const changeSymbol = changePercent >= 0 ? '+' : '';
-                        changeSpan.textContent = `${changeSymbol}${Math.abs(changePercent).toFixed(2)}%`;
-                        changeSpan.className = `watchlist-change ${changeClass}`;
-                    }
                     break;
                 }
             }
@@ -1572,22 +1848,15 @@
         // ============ SHOW NOTIFICATION ============
         function showNotification(title, message, type = 'success') {
             const toast = document.getElementById('notificationToast');
-            const titleEl = document.getElementById('notificationTitle');
-            const messageEl = document.getElementById('notificationMessage');
-            
-            titleEl.textContent = title;
-            messageEl.textContent = message;
+            document.getElementById('notificationTitle').textContent = title;
+            document.getElementById('notificationMessage').textContent = message;
             toast.className = `notification-toast ${type} show`;
-            
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 5000);
+            setTimeout(() => toast.classList.remove('show'), 4000);
         }
         
         // ============ PANEL FUNCTIONS ============
         function toggleQuickDropdown() {
-            const dropdown = document.getElementById('quickDropdown');
-            dropdown.classList.toggle('show');
+            document.getElementById('quickDropdown').classList.toggle('show');
         }
         
         function openPanel(panelName) {
@@ -1597,13 +1866,12 @@
             const content = document.getElementById('panelContent');
             
             if (panelName === 'account') {
-                title.innerHTML = '<i class="fas fa-user-circle"></i> Account Settings';
+                title.innerHTML = '<i class="fas fa-user-circle"></i> Account';
                 loadAccountPanel(content);
-            } else if (panelName === 'orderbook') {
+            } else {
                 title.innerHTML = '<i class="fas fa-receipt"></i> Order Book';
                 loadOrderBookPanel(content);
             }
-            
             panel.classList.add('open');
             overlay.classList.add('show');
             document.getElementById('quickDropdown').classList.remove('show');
@@ -1616,12 +1884,13 @@
         
         async function loadAccountPanel(container) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Account/details`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Account/details`);
                 const details = await response.json();
+                const holdings = details.HOLDINGS || {};
+                const activeHoldingsCount = Object.values(holdings).filter(h => h.ISACTIVE === true && h.QUANTITY > 0).length;
                 
                 container.innerHTML = `
+                    <!-- Profile Information Section -->
                     <div class="panel-section">
                         <h3>Profile Information</h3>
                         <div class="info-box">
@@ -1638,12 +1907,17 @@
                                 <span class="info-value">${details.EMAIL || '-'}</span>
                             </div>
                             <div class="info-row">
+                                <span class="info-label">Email Verified:</span>
+                                <span class="info-value">${details.EMAILVERIFIED ? '✓ Yes' : '✗ No'}</span>
+                            </div>
+                            <div class="info-row">
                                 <span class="info-label">Margin Enabled:</span>
                                 <span class="info-value">${details.MARGINENABLED ? 'Enabled' : 'Disabled'}</span>
                             </div>
                         </div>
                     </div>
                     
+                    <!-- Financial Summary Section -->
                     <div class="panel-section">
                         <h3>Financial Summary</h3>
                         <div class="info-box">
@@ -1653,24 +1927,32 @@
                             </div>
                             <div class="info-row">
                                 <span class="info-label">Realized P&L:</span>
-                                <span class="info-value">₹${(details.REALIZEDPNL || 0).toFixed(2)}</span>
+                                <span class="info-value ${(details.REALIZEDPNL || 0) >= 0 ? 'positive' : 'negative'}">
+                                    ${(details.REALIZEDPNL || 0) >= 0 ? '+' : ''}₹${Math.abs(details.REALIZEDPNL || 0).toFixed(2)}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Active Holdings:</span>
+                                <span class="info-value">${activeHoldingsCount}</span>
                             </div>
                         </div>
                     </div>
                     
+                    <!-- Update Profile Section -->
                     <div class="panel-section">
                         <h3>Update Profile</h3>
                         <div class="form-group">
                             <label>Full Name</label>
-                            <input type="text" id="updateName" value="${details.NAME || ''}">
+                            <input type="text" id="updateName" value="${details.NAME || ''}" placeholder="Enter your name">
                         </div>
-                        <div class="checkbox-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 15px;">
+                        <div class="checkbox-group">
                             <input type="checkbox" id="updateMarginEnabled" ${details.MARGINENABLED ? 'checked' : ''}>
-                            <label style="margin-bottom: 0;">Enable Margin Trading</label>
+                            <label for="updateMarginEnabled">Enable Margin Trading</label>
                         </div>
                         <button class="btn-submit" onclick="updateProfile()">Update Profile</button>
                     </div>
                     
+                    <!-- Change Password Section -->
                     <div class="panel-section">
                         <h3>Change Password</h3>
                         <div class="form-group">
@@ -1679,7 +1961,7 @@
                         </div>
                         <div class="form-group">
                             <label>New Password</label>
-                            <input type="password" id="newPassword" placeholder="Enter new password (min 8 chars)">
+                            <input type="password" id="newPassword" placeholder="Enter new password (min 8 characters)">
                         </div>
                         <div class="form-group">
                             <label>Confirm New Password</label>
@@ -1688,33 +1970,34 @@
                         <button class="btn-submit" onclick="changePassword()">Change Password</button>
                     </div>
                     
+                    <!-- Danger Zone Section -->
                     <div class="panel-section">
                         <h3 style="color: #ef4444;">Danger Zone</h3>
+                        <p style="font-size: 12px; color: #666; margin-bottom: 12px;">
+                            <strong>Warning:</strong> Deleting your account is irreversible. All holdings will be liquidated and balance forfeited.
+                        </p>
                         <button class="btn-submit" style="background: #ef4444;" onclick="deleteAccount()">Delete My Account</button>
                     </div>
                 `;
             } catch (error) {
+                console.error('Load account error:', error);
                 container.innerHTML = '<div style="text-align:center; color: #f44;">Failed to load account details</div>';
             }
         }
         
         async function loadOrderBookPanel(container) {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/OrderBook`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/OrderBook`);
                 const orders = await response.json();
                 currentPanelOrders = orders;
                 renderOrderBookPanel(container);
-            } catch (error) {
-                container.innerHTML = '<div style="text-align:center; color: #f44;">Failed to load orders</div>';
-            }
+            } catch { container.innerHTML = '<div style="color:#f44">Failed to load</div>'; }
         }
         
         function renderOrderBookPanel(container) {
-            let filteredOrders = currentPanelOrders;
+            let filtered = currentPanelOrders;
             if (currentPanelFilter !== 'ALL') {
-                filteredOrders = currentPanelOrders.filter(o => o.STATUS === currentPanelFilter);
+                filtered = currentPanelOrders.filter(o => o.STATUS === currentPanelFilter);
             }
             
             container.innerHTML = `
@@ -1723,18 +2006,40 @@
                     <button class="orderbook-filter-btn ${currentPanelFilter === 'Pending' ? 'active' : ''}" onclick="filterPanelOrders('Pending')">Pending</button>
                     <button class="orderbook-filter-btn ${currentPanelFilter === 'Filled' ? 'active' : ''}" onclick="filterPanelOrders('Filled')">Filled</button>
                     <button class="orderbook-filter-btn ${currentPanelFilter === 'Cancelled' ? 'active' : ''}" onclick="filterPanelOrders('Cancelled')">Cancelled</button>
+                    <button class="orderbook-filter-btn ${currentPanelFilter === 'TriggerPending' ? 'active' : ''}" onclick="filterPanelOrders('TriggerPending')">Trigger Pending</button>
                 </div>
                 <div class="orderbook-list">
-                    ${filteredOrders.length === 0 ? '<div style="text-align:center; padding:40px; color:#999;">No orders found</div>' : ''}
-                    ${filteredOrders.map(order => `
-                        <div class="order-item" onclick="selectSymbolFromOrder('${order.SYMBOL}')">
+                    ${filtered.length === 0 ? '<div style="text-align:center; padding:40px; color:#999;">No orders found</div>' : ''}
+                    ${filtered.map(order => `
+                        <div class="order-item" data-orderid="${order.ORDERID}">
                             <div class="order-symbol">
                                 ${order.SYMBOL}
                                 <span style="font-size: 11px; color: ${order.ACTION === 'BUY' ? '#10b981' : '#ef4444'}">${order.ACTION}</span>
+                                <span class="status-badge status-${order.STATUS}" style="float: right;">${order.STATUS}</span>
                             </div>
                             <div class="order-details">
-                                <span>${order.QUANTITY} shares @ ${order.PRICE ? '₹' + order.PRICE.toFixed(2) : 'Market'}</span>
-                                <span class="status-badge status-${order.STATUS}">${order.STATUS}</span>
+                                <div class="order-detail-row">
+                                    <span>📊 ${order.QUANTITY} shares</span>
+                                    <span>💰 ${order.PRICE ? '₹' + order.PRICE.toFixed(2) : 'Market'}</span>
+                                    ${order.TRIGGERPRICE ? `<span>🎯 Trigger: ₹${order.TRIGGERPRICE.toFixed(2)}</span>` : ''}
+                                </div>
+                                <div class="order-detail-row">
+                                    <span>🕐 ${new Date(order.TIMESTAMP * 1000).toLocaleString()}</span>
+                                    ${order.EXECUTEDPRICE ? `<span>✅ Executed: ₹${order.EXECUTEDPRICE.toFixed(2)}</span>` : ''}
+                                </div>
+                                <div class="order-actions">
+                                    ${(order.STATUS === 'Pending' || order.STATUS === 'TriggerPending') ? `
+                                        <button class="order-modify-btn" onclick="event.stopPropagation(); openModifyOrderInPanel('${order.ORDERID}')">
+                                            <i class="fas fa-edit"></i> Modify
+                                        </button>
+                                        <button class="order-cancel-btn" onclick="event.stopPropagation(); cancelOrderFromPanel('${order.ORDERID}')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    ` : ''}
+                                    <button class="order-view-btn" onclick="event.stopPropagation(); selectSymbolFromOrder('${order.SYMBOL}')">
+                                        <i class="fas fa-chart-line"></i> View Chart
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `).join('')}
@@ -1754,6 +2059,101 @@
             closePanel();
         }
         
+        // Modify Order Functions
+        function openModifyOrderInPanel(orderId) {
+            const order = currentPanelOrders.find(o => o.ORDERID === orderId);
+            if (!order) return;
+            
+            currentModifyOrder = order;
+            
+            document.getElementById('modifyOrderId').value = order.ORDERID;
+            document.getElementById('modifySymbol').value = order.SYMBOL;
+            document.getElementById('modifyQuantity').value = order.QUANTITY;
+            document.getElementById('modifyPrice').value = order.PRICE || '';
+            document.getElementById('modifyTriggerPrice').value = order.TRIGGERPRICE || '';
+            document.getElementById('modifyValidity').value = order.VALIDITY || 'day';
+            
+            document.getElementById('panelModifyModal').classList.add('show');
+        }
+        
+        function closeModifyModal() {
+            document.getElementById('panelModifyModal').classList.remove('show');
+            currentModifyOrder = null;
+        }
+        
+        async function submitModifyFromPanel() {
+            if (!currentModifyOrder) return;
+            
+            const quantity = parseInt(document.getElementById('modifyQuantity').value);
+            const price = parseFloat(document.getElementById('modifyPrice').value);
+            const triggerPrice = parseFloat(document.getElementById('modifyTriggerPrice').value);
+            const validity = document.getElementById('modifyValidity').value;
+            
+            if (!quantity || quantity <= 0) {
+                showNotification('Please enter valid quantity', 'error');
+                return;
+            }
+            
+            const modifyData = {
+                ORDERID: currentModifyOrder.ORDERID,
+                QUANTITY: quantity,
+                PRICE: price || null,
+                TRIGGERPRICE: triggerPrice || null,
+                VALIDITY: validity,
+                TIMESTAMP: Date.now()
+            };
+            
+            try {
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Trade/modify-order`, {
+                    method: 'PUT',
+                    body: JSON.stringify(modifyData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification(data.MESSAGE || 'Order modified successfully', 'success');
+                    closeModifyModal();
+                    await loadOrderBookPanel(document.getElementById('panelContent'));
+                } else {
+                    let errorMessage = data.MESSAGE || 'Failed to modify order';
+                    if (data.ERRORS && data.ERRORS.length > 0) {
+                        errorMessage = data.ERRORS.join(', ');
+                    }
+                    showNotification(errorMessage, 'error');
+                }
+            } catch (error) {
+                console.error('Modify order error:', error);
+                showNotification('Network error', 'error');
+            }
+        }
+        
+        async function cancelOrderFromPanel(orderId) {
+            if (!confirm('Are you sure you want to cancel this order?')) return;
+            
+            try {
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Trade/cancel-order/${orderId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showNotification(data.MESSAGE || 'Order cancelled successfully', 'success');
+                    await loadOrderBookPanel(document.getElementById('panelContent'));
+                } else {
+                    let errorMessage = data.MESSAGE || 'Failed to cancel order';
+                    if (data.ERRORS && data.ERRORS.length > 0) {
+                        errorMessage = data.ERRORS.join(', ');
+                    }
+                    showNotification(errorMessage, 'error');
+                }
+            } catch (error) {
+                console.error('Cancel order error:', error);
+                showNotification('Network error', 'error');
+            }
+        }
+        
         async function updateProfile() {
             const name = document.getElementById('updateName')?.value;
             const marginEnabled = document.getElementById('updateMarginEnabled')?.checked;
@@ -1764,18 +2164,17 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Account/update`, {
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Account/update`, {
                     method: 'PUT',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({ NAME: name, MARGINENABLED: marginEnabled })
                 });
                 
                 if (response.ok) {
                     showNotification('Success', 'Profile updated successfully', 'success');
+                    // Refresh the account panel to show updated values
                     loadAccountPanel(document.getElementById('panelContent'));
+                    // Also refresh main positions to update margin status
+                    loadActivePositions();
                 } else {
                     showNotification('Error', 'Failed to update profile', 'error');
                 }
@@ -1805,20 +2204,22 @@
             }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Account/change-password`, {
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Account/change-password`, {
                     method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
                     body: JSON.stringify({ OLDPASSWORD: oldPassword, NEWPASSWORD: newPassword })
                 });
                 
                 if (response.ok) {
                     showNotification('Success', 'Password changed! Please login again.', 'success');
-                    setTimeout(() => logout(), 2000);
+                    // Clear password fields
+                    document.getElementById('oldPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    // Logout after 2 seconds
+                    setTimeout(() => redirectToLogin(), 2000);
                 } else {
-                    showNotification('Error', 'Failed to change password', 'error');
+                    const error = await response.text();
+                    showNotification('Error', error || 'Failed to change password', 'error');
                 }
             } catch (error) {
                 showNotification('Error', 'Network error', 'error');
@@ -1826,29 +2227,32 @@
         }
         
         async function deleteAccount() {
-            const confirmed = confirm('⚠️ WARNING: This action is IRREVERSIBLE!\n\nType "DELETE" to confirm.');
+            const confirmed = confirm('⚠️ WARNING: This action is IRREVERSIBLE!\n\nYour account will be permanently deleted.\nAll holdings will be liquidated and balance forfeited.\n\nClick OK to continue.');
             if (!confirmed) return;
             
             const confirmation = prompt('Type "DELETE" to confirm account deletion:');
-            if (confirmation !== 'DELETE') return;
+            if (confirmation !== 'DELETE') {
+                showNotification('Account deletion cancelled', 'info');
+                return;
+            }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Account/delete`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Account/delete`, {
+                    method: 'DELETE'
                 });
                 
                 if (response.ok) {
                     showNotification('Account Deleted', 'Your account has been deleted', 'success');
-                    setTimeout(() => logout(), 2000);
+                    setTimeout(() => redirectToLogin(), 2000);
                 } else {
-                    showNotification('Error', 'Failed to delete account', 'error');
+                    const error = await response.text();
+                    showNotification('Error', error || 'Failed to delete account', 'error');
                 }
             } catch (error) {
                 showNotification('Error', 'Network error', 'error');
             }
         }
-        
+
         // ============ LOAD USER INFO ============
         function loadUserInfo() {
             const userEmail = localStorage.getItem('user_email');
@@ -1872,14 +2276,10 @@
         // ============ LOAD STOCKS ============
         async function loadStocks() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Stocks`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Stocks`);
                 allStocks = await response.json();
-                
                 const select = document.getElementById('symbolSelect');
                 select.innerHTML = '<option value="">Select Stock</option>';
-                
                 allStocks.forEach(stock => {
                     const option = document.createElement('option');
                     option.value = stock;
@@ -1898,35 +2298,31 @@
                 document.getElementById('lotSize').textContent = '-';
                 return;
             }
-            
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Stocks/lot-size/${currentSymbol}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Stocks/lot-size/${currentSymbol}`);
                 const lotSize = await response.json();
                 document.getElementById('lotSize').textContent = lotSize;
-                
-                const quantityInput = document.getElementById('quantity');
-                quantityInput.value = lotSize;
-                quantityInput.step = lotSize;
+                document.getElementById('quantity').value = lotSize;
                 updateLotInfo(lotSize, lotSize);
-                
             } catch (error) {
                 console.error('Failed to load lot size:', error);
             }
         }
         
         // ============ QUANTITY CONTROL ============
+        function updateLotInfo(quantity, lotSize) {
+            const lots = quantity / lotSize;
+            const lotInfo = document.getElementById('lotInfo');
+            lotInfo.innerHTML = lots === 1 ? `📦 ${lots} lot (${quantity} shares)` : `📦 ${lots} lots (${quantity} shares) <span class="lot-badge">${lots}×${lotSize}</span>`;
+        }
+        
         function adjustQuantity(direction) {
             const input = document.getElementById('quantity');
             const lotSize = parseInt(document.getElementById('lotSize').textContent) || 1;
-            let currentValue = parseInt(input.value) || lotSize;
-            
-            let newValue = currentValue + (direction * lotSize);
-            if (newValue < lotSize) newValue = lotSize;
-            
-            input.value = newValue;
-            updateLotInfo(newValue, lotSize);
+            let value = (parseInt(input.value) || lotSize) + (direction * lotSize);
+            if (value < lotSize) value = lotSize;
+            input.value = value;
+            updateLotInfo(value, lotSize);
         }
         
         function setQuantity(lots) {
@@ -1936,33 +2332,11 @@
             updateLotInfo(quantity, lotSize);
         }
         
-        function updateLotInfo(quantity, lotSize) {
-            const lotInfo = document.getElementById('lotInfo');
-            const lots = quantity / lotSize;
-            
-            if (lots === 1) {
-                lotInfo.innerHTML = `📦 ${lots} lot (${quantity} shares)`;
-            } else {
-                lotInfo.innerHTML = `📦 ${lots} lots (${quantity} shares) <span class="lot-badge">${lots}×${lotSize}</span>`;
-            }
-        }
-        
         function validateQuantity() {
             const input = document.getElementById('quantity');
             const lotSize = parseInt(document.getElementById('lotSize').textContent) || 1;
-            let value = parseInt(input.value);
-            
-            if (isNaN(value) || value < lotSize) {
-                value = lotSize;
-            }
-            
-            const remainder = value % lotSize;
-            if (remainder !== 0) {
-                const oldValue = value;
-                value = Math.round(value / lotSize) * lotSize;
-                showNotification('Quantity Adjusted', `Adjusted from ${oldValue} to ${value} (multiple of ${lotSize})`, 'info');
-            }
-            
+            let value = parseInt(input.value) || lotSize;
+            if (value % lotSize !== 0) value = Math.round(value / lotSize) * lotSize;
             input.value = value;
             updateLotInfo(value, lotSize);
         }
@@ -1970,178 +2344,77 @@
         // ============ LOAD ACTIVE POSITIONS ============
         async function loadActivePositions() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Account/details`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (response.ok) {
-                    const details = await response.json();
-                    const holdings = details.HOLDINGS || {};
-                    
-                    activePositions = {};
-                    
-                    Object.values(holdings).forEach(holding => {
-                        if (holding.ISACTIVE === true && holding.QUANTITY > 0) {
-                            activePositions[holding.SYMBOL] = {
-                                symbol: holding.SYMBOL,
-                                quantity: holding.QUANTITY,
-                                avgPrice: holding.AVERAGEPRICE,
-                                positionType: holding.POSITIONTYPE,
-                                currentPrice: holding.AVERAGEPRICE,
-                                pnl: 0,
-                                pnlPercent: 0
-                            };
-                            
-                            if (!subscribedSymbols.has(holding.SYMBOL) && ws && ws.readyState === WebSocket.OPEN) {
-                                subscribeToSymbol(holding.SYMBOL);
-                                subscribedSymbols.add(holding.SYMBOL);
-                            }
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Account/details`);
+                const details = await response.json();
+                const holdings = details.HOLDINGS || {};
+                activePositions = {};
+                Object.values(holdings).forEach(holding => {
+                    if (holding.ISACTIVE === true && holding.QUANTITY > 0) {
+                        activePositions[holding.SYMBOL] = {
+                            symbol: holding.SYMBOL,
+                            quantity: holding.QUANTITY,
+                            avgPrice: holding.AVERAGEPRICE,
+                            positionType: holding.POSITIONTYPE,
+                            currentPrice: holding.AVERAGEPRICE,
+                            pnl: 0,
+                            pnlPercent: 0
+                        };
+                        if (!subscribedSymbols.has(holding.SYMBOL) && ws && ws.readyState === WebSocket.OPEN) {
+                            subscribeToSymbol(holding.SYMBOL);
+                            subscribedSymbols.add(holding.SYMBOL);
                         }
-                    });
-                    
-                    updateTotalPnLDisplay();
-                    updateCompactPnLDisplay();
-                }
+                    }
+                });
+                updateTotalPnLDisplay();
+                updateCompactPnLDisplay();
             } catch (error) {
                 console.error('Failed to load positions:', error);
             }
         }
         
-        // ============ UPDATE P&L ============
         function updatePositionPnL(symbol, currentPrice) {
             if (activePositions[symbol]) {
                 const pos = activePositions[symbol];
                 pos.currentPrice = currentPrice;
-                
-                if (pos.positionType === 'LONG') {
-                    pos.pnl = (currentPrice - pos.avgPrice) * pos.quantity;
-                } else if (pos.positionType === 'SHORT') {
-                    pos.pnl = (pos.avgPrice - currentPrice) * pos.quantity;
-                }
-                
+                pos.pnl = pos.positionType === 'LONG' ? (currentPrice - pos.avgPrice) * pos.quantity : (pos.avgPrice - currentPrice) * pos.quantity;
                 pos.pnlPercent = (pos.pnl / (pos.avgPrice * pos.quantity)) * 100;
-                
                 updateTotalPnLDisplay();
                 updateCompactPnLDisplay();
             }
         }
         
         function updateTotalPnLDisplay() {
-            const positions = Object.values(activePositions);
-            let totalPnL = positions.reduce((sum, pos) => sum + pos.pnl, 0);
-            const totalClass = totalPnL >= 0 ? 'positive' : 'negative';
-            const totalSymbol = totalPnL >= 0 ? '+' : '';
-            
-            document.getElementById('totalPnlValue').innerHTML = `${totalSymbol}₹${Math.abs(totalPnL).toFixed(2)}`;
-            document.getElementById('totalPnlValue').className = `pnl-total-value ${totalClass}`;
+            const total = Object.values(activePositions).reduce((s, p) => s + p.pnl, 0);
+            const el = document.getElementById('totalPnlValue');
+            el.innerHTML = `${total >= 0 ? '+' : ''}₹${Math.abs(total).toFixed(2)}`;
+            el.className = `pnl-total-value ${total >= 0 ? 'positive' : 'negative'}`;
         }
         
-        // ============ P&L POPUP ============
-        function togglePnLPopup() {
-            const popup = document.getElementById('pnlPopup');
-            const content = document.getElementById('pnlPopupContent');
-            
-            if (popup.classList.contains('show')) {
-                closePnLPopup();
-            } else {
-                // Update popup content
-                const positions = Object.values(activePositions);
-                if (positions.length === 0) {
-                    content.innerHTML = `
-                        <div style="text-align:center; padding:40px 20px; color:#999;">
-                            <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 10px; display: block;"></i>
-                            No active positions
-                        </div>
-                    `;
-                } else {
-                    let totalPnL = 0;
-                    content.innerHTML = positions.map(pos => {
-                        totalPnL += pos.pnl;
-                        const pnlClass = pos.pnl >= 0 ? 'positive' : 'negative';
-                        const pnlSymbol = pos.pnl >= 0 ? '+' : '';
-                        return `
-                            <div class="popup-position" onclick="selectSymbolFromPopup('${pos.symbol}')">
-                                <div class="popup-symbol">
-                                    <span><strong>${pos.symbol}</strong> <span style="font-size: 10px;">${pos.positionType}</span></span>
-                                    <span class="${pnlClass}">${pnlSymbol}₹${Math.abs(pos.pnl).toFixed(2)}</span>
-                                </div>
-                                <div class="popup-details">
-                                    <span>Qty: ${pos.quantity}</span>
-                                    <span>Avg: ₹${pos.avgPrice.toFixed(2)}</span>
-                                    <span>LTP: ₹${pos.currentPrice.toFixed(2)}</span>
-                                    <span class="${pnlClass}">(${pnlSymbol}${pos.pnlPercent.toFixed(2)}%)</span>
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                    
-                    const totalClass = totalPnL >= 0 ? 'positive' : 'negative';
-                    const totalSymbol = totalPnL >= 0 ? '+' : '';
-                    content.innerHTML += `
-                        <div style="background: #f0f0f0; padding: 12px; border-radius: 8px; margin-top: 10px;">
-                            <div style="display: flex; justify-content: space-between; font-weight: bold;">
-                                <span>Total Unrealized P&L</span>
-                                <span class="${totalClass}">${totalSymbol}₹${Math.abs(totalPnL).toFixed(2)}</span>
-                            </div>
-                        </div>
-                    `;
-                }
-                popup.classList.add('show');
-            }
-        }
+        function selectSymbolFromPopup(symbol) { document.getElementById('symbolSelect').value = symbol; onSymbolChange(); closePnLPopup(); }
         
-        function closePnLPopup() {
-            document.getElementById('pnlPopup').classList.remove('show');
-        }
-        
-        function selectSymbolFromPopup(symbol) {
-            document.getElementById('symbolSelect').value = symbol;
-            onSymbolChange();
-            closePnLPopup();
-            showNotification('Symbol Changed', `Switched to ${symbol}`, 'success');
-        }
-        
-        // ============ ON SYMBOL CHANGE ============
-        async function onSymbolChange() {
-            const symbol = document.getElementById('symbolSelect').value;
-            if (!symbol) return;
-            
-            currentSymbol = symbol;
-            document.getElementById('selectedSymbolDisplay').textContent = symbol;
-            await loadLotSize();
-            
-            priceHistory = [];
-            timeLabels = [];
-            lastPrice = 0;
-            
-            initializeChart();
-            
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                subscribeToSymbol(symbol);
-            } else {
-                connectWebSocket();
-            }
-        }
-        
-        // ============ INITIALIZE CHART ============
+        // ============ CHART FUNCTIONS ============
         function initializeChart() {
             const ctx = document.getElementById('priceChart').getContext('2d');
+            if (chart) chart.destroy();
             
-            if (chart) {
-                chart.destroy();
-            }
+            // Clear and regenerate data
+            priceHistory = [];
+            timeLabels = [];
             
+            // Generate 20 data points with timestamps
             for (let i = 0; i < 20; i++) {
                 const initialPrice = 1000 + Math.random() * 100;
                 priceHistory.push(initialPrice);
-                timeLabels.push(new Date(Date.now() - (20 - i) * 60000).toLocaleTimeString());
+                // Create time labels for the last 20 minutes
+                const time = new Date(Date.now() - (20 - i) * 60000);
+                timeLabels.push(time.toLocaleTimeString());
             }
             lastPrice = priceHistory[priceHistory.length - 1];
             
             chart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: timeLabels,
+                    labels: timeLabels,  // This was missing/empty!
                     datasets: [{
                         label: currentSymbol ? `${currentSymbol} Price` : 'Price',
                         data: priceHistory,
@@ -2151,7 +2424,8 @@
                         fill: true,
                         tension: 0.4,
                         pointRadius: 3,
-                        pointHoverRadius: 6
+                        pointHoverRadius: 6,
+                        pointBackgroundColor: '#667eea'
                     }]
                 },
                 options: {
@@ -2159,22 +2433,33 @@
                     maintainAspectRatio: true,
                     plugins: {
                         legend: { display: true, position: 'top' },
-                        tooltip: { callbacks: { label: (ctx) => `Price: ₹${ctx.parsed.y.toFixed(2)}` } }
+                        tooltip: { 
+                            callbacks: { 
+                                label: (ctx) => `Price: ₹${ctx.parsed.y.toFixed(2)}` 
+                            } 
+                        }
                     },
                     scales: {
-                        x: { title: { display: true, text: 'Time' }, ticks: { maxRotation: 45, autoSkip: true } },
-                        y: { title: { display: true, text: 'Price (₹)' }, ticks: { callback: (v) => '₹' + v.toFixed(2) }, beginAtZero: false }
+                        x: { 
+                            title: { display: true, text: 'Time' }, 
+                            ticks: { maxRotation: 45, autoSkip: true }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Price (₹)' }, 
+                            ticks: { callback: (v) => '₹' + v.toFixed(2) },
+                            beginAtZero: false  // Don't start from zero
+                        }
                     }
                 }
             });
         }
         
-        // ============ ADD PRICE POINT ============
         function addPricePoint(price, timestamp) {
             const time = new Date(timestamp).toLocaleTimeString();
             priceHistory.push(price);
             timeLabels.push(time);
             
+            // Keep last 50 points
             if (priceHistory.length > 50) {
                 priceHistory.shift();
                 timeLabels.shift();
@@ -2182,7 +2467,7 @@
             
             if (chart) {
                 chart.data.datasets[0].data = [...priceHistory];
-                chart.data.labels = [...timeLabels];
+                chart.data.labels = [...timeLabels];  // Make sure labels are updated
                 chart.update('none');
             }
             
@@ -2193,404 +2478,126 @@
             if (currentSymbol) {
                 updatePositionPnL(currentSymbol, price);
             }
-            
-            // Update watchlist prices
             updateWatchlistPrice(currentSymbol, price);
         }
         
         function updatePriceDisplay(price) {
-            const currentPriceEl = document.getElementById('currentPrice');
-            const priceChangeEl = document.getElementById('priceChange');
-            
-            currentPriceEl.textContent = '₹' + price.toFixed(2);
-            
-            if (lastPrice > 0 && lastPrice !== price) {
-                const changePercent = ((price - lastPrice) / lastPrice) * 100;
-                const changeAbs = Math.abs(changePercent).toFixed(2);
-                
-                if (changePercent > 0) {
-                    priceChangeEl.className = 'price-change positive';
-                    priceChangeEl.textContent = '+' + changeAbs + '%';
-                } else if (changePercent < 0) {
-                    priceChangeEl.className = 'price-change negative';
-                    priceChangeEl.textContent = '-' + changeAbs + '%';
-                }
+            document.getElementById('currentPrice').textContent = '₹' + price.toFixed(2);
+            if (lastPrice && lastPrice !== price) {
+                const change = ((price - lastPrice) / lastPrice) * 100;
+                const el = document.getElementById('priceChange');
+                el.textContent = `${change >= 0 ? '+' : ''}${Math.abs(change).toFixed(2)}%`;
+                el.className = `price-change ${change >= 0 ? 'positive' : 'negative'}`;
             }
-            
             lastPrice = price;
         }
         
-        // ============ QUICK ORDER ============
-        async function placeQuickOrder(action) {
-            if (!currentSymbol) {
-                showNotification('Error', 'Please select a stock first', 'error');
-                return;
-            }
-            
-            const lotSize = parseInt(document.getElementById('lotSize').textContent) || 1;
-            const quantity = lotSize;
-            
-            const orderData = {
-                SYMBOL: currentSymbol,
-                ACTION: action,
-                QUANTITY: quantity,
-                ORDERTYPE: 'MARKET',
-                VALIDITY: 'day',
-                TAG: 'quick-order',
-                TIMESTAMP: Date.now()
-            };
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/Trade/place-order`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(orderData)
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    showNotification('Order Placed', `${action} MARKET order placed for ${quantity} shares of ${currentSymbol}`, 'success');
-                    setTimeout(() => loadActivePositions(), 1000);
-                } else {
-                    let errorMessage = data.MESSAGE || 'Order failed';
-                    if (data.ERRORS && data.ERRORS.length > 0) {
-                        errorMessage = data.ERRORS.join(', ');
-                    }
-                    showNotification('Order Failed', errorMessage, 'error');
-                }
-            } catch (error) {
-                console.error('Quick order error:', error);
-                showNotification('Error', 'Network error', 'error');
-            }
+        async function onSymbolChange() {
+            const symbol = document.getElementById('symbolSelect').value;
+            if (!symbol) return;
+            currentSymbol = symbol;
+            document.getElementById('selectedSymbolDisplay').textContent = symbol;
+            await loadLotSize();
+            priceHistory = []; timeLabels = [];
+            initializeChart();
+            if (ws?.readyState === WebSocket.OPEN) subscribeToSymbol(symbol);
+            else connectWebSocket();
         }
         
-        // ============ SET ADVANCED ACTION ============
+        // ============ ORDER FUNCTIONS ============
+        async function placeQuickOrder(action) {
+            if (!currentSymbol) { showNotification('Error', 'Select stock first', 'error'); return; }
+            const lotSize = parseInt(document.getElementById('lotSize').textContent) || 1;
+            try {
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Trade/place-order`, {
+                    method: 'POST', body: JSON.stringify({ SYMBOL: currentSymbol, ACTION: action, QUANTITY: lotSize, ORDERTYPE: 'MARKET', VALIDITY: 'day', TAG: 'quick', TIMESTAMP: Date.now() })
+                });
+                if (response.ok) { showNotification('Order Placed', `${action} ${lotSize} shares`, 'success'); setTimeout(loadActivePositions, 1000); }
+                else showNotification('Error', 'Order failed', 'error');
+            } catch { showNotification('Error', 'Network error', 'error'); }
+        }
+        
         function setAdvancedAction(action) {
             advancedAction = action;
-            
-            const buyBtn = document.querySelector('.advanced-action-btn.buy');
-            const sellBtn = document.querySelector('.advanced-action-btn.sell');
-            
-            if (action === 'BUY') {
-                buyBtn.classList.add('active');
-                sellBtn.classList.remove('active');
-            } else {
-                sellBtn.classList.add('active');
-                buyBtn.classList.remove('active');
-            }
+            document.querySelector('.advanced-action-btn.buy').classList.toggle('active', action === 'BUY');
+            document.querySelector('.advanced-action-btn.sell').classList.toggle('active', action === 'SELL');
         }
         
-        // ============ PLACE ADVANCED ORDER ============
         async function placeAdvancedOrder() {
-            if (!currentSymbol) {
-                showNotification('Error', 'Please select a stock first', 'error');
-                return;
-            }
-            
+            if (!currentSymbol) { showNotification('Error', 'Select stock first', 'error'); return; }
             const quantity = parseInt(document.getElementById('quantity').value);
             const orderType = document.getElementById('orderType').value;
-            const validity = document.getElementById('validity').value;
             const price = (orderType === 'LIMIT' || orderType === 'STOPLIMIT') ? parseFloat(document.getElementById('price').value) : null;
-            const triggerPrice = (orderType === 'STOPLOSS' || orderType === 'STOPLIMIT') ? parseFloat(document.getElementById('triggerPrice').value) : null;
-            const tag = document.getElementById('tag').value || "";
+            const trigger = (orderType === 'STOPLOSS' || orderType === 'STOPLIMIT') ? parseFloat(document.getElementById('triggerPrice').value) : null;
             const lotSize = parseInt(document.getElementById('lotSize').textContent);
-            
-            if (!quantity || quantity <= 0) {
-                showNotification('Error', 'Please enter valid quantity', 'error');
-                return;
-            }
-            
-            if (lotSize && quantity % lotSize !== 0) {
-                showNotification('Error', `Quantity must be multiple of ${lotSize}`, 'error');
-                return;
-            }
-            
-            if ((orderType === 'LIMIT' || orderType === 'STOPLIMIT') && (!price || price <= 0)) {
-                showNotification('Error', 'Please enter valid price', 'error');
-                return;
-            }
-            
-            if ((orderType === 'STOPLOSS' || orderType === 'STOPLIMIT') && (!triggerPrice || triggerPrice <= 0)) {
-                showNotification('Error', 'Please enter valid trigger price', 'error');
-                return;
-            }
-            
-            const orderData = {
-                SYMBOL: currentSymbol,
-                ACTION: advancedAction,
-                QUANTITY: quantity,
-                ORDERTYPE: orderType,
-                VALIDITY: validity,
-                TAG: tag,
-                TIMESTAMP: Date.now()
-            };
-            
-            if (price) orderData.PRICE = price;
-            if (triggerPrice) orderData.TRIGGERPRICE = triggerPrice;
-            
+            if (!quantity || quantity % lotSize !== 0) { showNotification('Error', `Multiple of ${lotSize}`, 'error'); return; }
+            const data = { SYMBOL: currentSymbol, ACTION: advancedAction, QUANTITY: quantity, ORDERTYPE: orderType, VALIDITY: document.getElementById('validity').value, TAG: document.getElementById('tag').value || '', TIMESTAMP: Date.now() };
+            if (price) data.PRICE = price;
+            if (trigger) data.TRIGGERPRICE = trigger;
             try {
-                const response = await fetch(`${API_BASE_URL}/api/Trade/place-order`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(orderData)
-                });
-                
-                const data = await response.json();
-                
-                if (response.ok) {
-                    showNotification('Order Placed', `${advancedAction} ${orderType} order placed for ${quantity} shares of ${currentSymbol}`, 'success');
-                    document.getElementById('quantity').value = lotSize;
-                    document.getElementById('price').value = '';
-                    document.getElementById('triggerPrice').value = '';
-                    document.getElementById('tag').value = '';
-                    document.getElementById('orderType').value = 'MARKET';
-                    togglePriceFields();
-                    updateLotInfo(lotSize, lotSize);
-                    setTimeout(() => loadActivePositions(), 1000);
-                } else {
-                    let errorMessage = data.MESSAGE || 'Order failed';
-                    if (data.ERRORS && data.ERRORS.length > 0) {
-                        errorMessage = data.ERRORS.join(', ');
-                    }
-                    showNotification('Order Failed', errorMessage, 'error');
-                }
-            } catch (error) {
-                console.error('Place order error:', error);
-                showNotification('Error', 'Network error', 'error');
-            }
+                const response = await authenticatedFetch(`${API_BASE_URL}/api/Trade/place-order`, { method: 'POST', body: JSON.stringify(data) });
+                if (response.ok) { showNotification('Order Placed', `${advancedAction} ${orderType}`, 'success'); setTimeout(loadActivePositions, 1000); }
+                else showNotification('Error', 'Order failed', 'error');
+            } catch { showNotification('Error', 'Network error', 'error'); }
         }
         
-        // ============ TOGGLE FUNCTIONS ============
         function toggleAdvanced() {
-            const options = document.getElementById('advancedOptions');
-            const icon = document.getElementById('advancedToggleIcon');
-            
-            if (options.classList.contains('show')) {
-                options.classList.remove('show');
-                icon.textContent = '▼';
-            } else {
-                options.classList.add('show');
-                icon.textContent = '▲';
-            }
+            const opts = document.getElementById('advancedOptions');
+            opts.classList.toggle('show');
+            document.getElementById('advancedToggleIcon').textContent = opts.classList.contains('show') ? '▲' : '▼';
         }
         
         function togglePriceFields() {
-            const orderType = document.getElementById('orderType').value;
-            const priceGroup = document.getElementById('priceGroup');
-            const triggerGroup = document.getElementById('triggerGroup');
-            
-            if (orderType === 'MARKET') {
-                priceGroup.style.display = 'none';
-                triggerGroup.style.display = 'none';
-            } else if (orderType === 'LIMIT') {
-                priceGroup.style.display = 'block';
-                triggerGroup.style.display = 'none';
-            } else if (orderType === 'STOPLOSS') {
-                priceGroup.style.display = 'none';
-                triggerGroup.style.display = 'block';
-            } else if (orderType === 'STOPLIMIT') {
-                priceGroup.style.display = 'block';
-                triggerGroup.style.display = 'block';
-            }
+            const type = document.getElementById('orderType').value;
+            document.getElementById('priceGroup').style.display = (type === 'LIMIT' || type === 'STOPLIMIT') ? 'block' : 'none';
+            document.getElementById('triggerGroup').style.display = (type === 'STOPLOSS' || type === 'STOPLIMIT') ? 'block' : 'none';
         }
         
-        // ============ WEBSOCKET MESSAGE HANDLER ============
+        // ============ WEBSOCKET ============
         function handleWebSocketMessage(data) {
-            if (DEBUG_WEBSOCKET) {
-                console.log('[WebSocket Debug]', data);
-            }
-            
+            if (DEBUG_WEBSOCKET) console.log('[WebSocket]', data);
             switch (data.TYPE) {
                 case 'live_feed':
-                    if (data.DATA && Array.isArray(data.DATA)) {
-                        data.DATA.forEach(tick => {
-                            if (tick.SYMBOL === currentSymbol) {
-                                addPricePoint(tick.LTP, tick.LTT);
-                            }
-                            if (activePositions[tick.SYMBOL]) {
-                                updatePositionPnL(tick.SYMBOL, tick.LTP);
-                            }
-                            // Update watchlist prices
-                            updateWatchlistPrice(tick.SYMBOL, tick.LTP);
-                        });
-                    }
+                    data.DATA?.forEach(tick => {
+                        if (tick.SYMBOL === currentSymbol) addPricePoint(tick.LTP, tick.LTT);
+                        if (activePositions[tick.SYMBOL]) updatePositionPnL(tick.SYMBOL, tick.LTP);
+                        updateWatchlistPrice(tick.SYMBOL, tick.LTP);
+                    });
                     break;
-                    
                 case 'order_trigger':
-                    console.log('Order trigger event:', data);
-                    const triggerMessage = data.MESSAGE || `Order ${data.ORDERID || ''} trigger condition met`;
-                    showNotification('🎯 Order Triggered', triggerMessage, 'info');
-                    setTimeout(() => loadActivePositions(), 500);
+                    showNotification('🎯 Order Triggered', data.MESSAGE || 'Trigger condition met', 'info');
+                    setTimeout(loadActivePositions, 500);
                     break;
-                    
                 case 'trade_execution':
-                    console.log('Trade execution event:', data);
-                    
-                    const symbol = data.SYMBOL || currentSymbol || 'Unknown';
-                    const quantity = data.QUANTITY || 0;
-                    const price = data.PRICE || data.EXECUTEDPRICE || 0;
-                    const action = data.ACTION || 'Unknown';
-                    
-                    let pnlImpact = '';
-                    if (activePositions[symbol] && action === 'SELL') {
-                        const pos = activePositions[symbol];
-                        const estimatedPnl = (price - pos.avgPrice) * quantity;
-                        const pnlSymbol = estimatedPnl >= 0 ? '+' : '';
-                        pnlImpact = ` | P&L: ${pnlSymbol}₹${Math.abs(estimatedPnl).toFixed(2)}`;
-                    }
-                    
-                    const executionMessage = data.MESSAGE || 
-                        `${action} ${quantity} ${symbol} @ ₹${price.toFixed(2)}${pnlImpact}`;
-                    
-                    showNotification('✅ Order Executed', executionMessage, 'success');
+                    showNotification('✅ Order Executed', data.MESSAGE || 'Trade executed', 'success');
                     loadActivePositions();
                     break;
-                    
                 case 'system':
-                    console.log('System message:', data.MESSAGE);
-                    if (data.MESSAGE && data.MESSAGE.includes('Connected')) {
-                        showNotification('Connected', 'WebSocket connection established', 'success');
-                    }
+                    if (data.MESSAGE?.includes('Connected')) showNotification('Connected', 'WebSocket connected', 'success');
                     break;
-                    
-                case 'HeartBeat':
-                    console.log('Heartbeat received');
-                    break;
-                    
-                case 'error':
-                    console.error('WebSocket error:', data.MESSAGE);
-                    showNotification('WebSocket Error', data.MESSAGE, 'error');
-                    break;
-                    
-                default:
-                    console.log('Unknown message type:', data.TYPE, data);
-                    if (data.EXECUTEDPRICE !== undefined) {
-                        showNotification('Order Executed', data.MESSAGE || 'Trade executed', 'success');
-                        loadActivePositions();
-                    }
-                    break;
+                case 'HeartBeat': console.log('Heartbeat'); break;
+                case 'error': showNotification('WebSocket Error', data.MESSAGE, 'error'); break;
             }
         }
         
-        // ============ WEBSOCKET CONNECTION ============
         function connectWebSocket() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('WebSocket already connected');
-                return;
-            }
-            
+            if (ws?.readyState === WebSocket.OPEN) return;
             const wsUrl = `${WS_BASE_URL}/ws?token=${token}`;
-            console.log('Connecting to WebSocket:', wsUrl);
-            
-            try {
-                ws = new WebSocket(wsUrl);
-                
-                ws.onopen = function() {
-                    console.log('WebSocket connection opened');
-                    updateWSStatus(true);
-                    wsRetryCount = 0;
-                    
-                    showNotification('Connected', 'WebSocket connection established', 'success');
-                    
-                    if (currentSymbol) {
-                        subscribeToSymbol(currentSymbol);
-                    }
-                    
-                    // Subscribe to watchlist symbols
-                    watchlist.forEach(symbol => {
-                        if (!subscribedSymbols.has(symbol)) {
-                            subscribeToSymbol(symbol);
-                            subscribedSymbols.add(symbol);
-                        }
-                    });
-                    
-                    Object.keys(activePositions).forEach(symbol => {
-                        if (!subscribedSymbols.has(symbol)) {
-                            subscribeToSymbol(symbol);
-                            subscribedSymbols.add(symbol);
-                        }
-                    });
-                };
-                
-                ws.onmessage = function(event) {
-                    try {
-                        const data = JSON.parse(event.data);
-                        handleWebSocketMessage(data);
-                    } catch (error) {
-                        console.error('Failed to parse WebSocket message:', error, event.data);
-                    }
-                };
-                
-                ws.onerror = function(error) {
-                    console.error('WebSocket error:', error);
-                    updateWSStatus(false);
-                    showNotification('Connection Error', 'WebSocket connection error', 'error');
-                };
-                
-                ws.onclose = function(event) {
-                    console.log('WebSocket closed:', event.code, event.reason);
-                    updateWSStatus(false);
-                    
-                    if (wsRetryCount < 10) {
-                        const delay = Math.min(1000 * Math.pow(2, wsRetryCount), 30000);
-                        console.log(`Reconnecting in ${delay}ms (attempt ${wsRetryCount + 1}/10)`);
-                        setTimeout(() => { 
-                            wsRetryCount++; 
-                            connectWebSocket(); 
-                        }, delay);
-                    } else {
-                        console.log('Max reconnection attempts reached');
-                        showNotification('Disconnected', 'Unable to reconnect to WebSocket server', 'error');
-                    }
-                };
-                
-            } catch (error) {
-                console.error('WebSocket connection failed:', error);
-                updateWSStatus(false);
-                showNotification('Connection Failed', 'Unable to establish WebSocket connection', 'error');
-            }
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => { updateWSStatus(true); if (currentSymbol) subscribeToSymbol(currentSymbol); watchlist.forEach(s => subscribeToSymbol(s)); };
+            ws.onmessage = (e) => { try { handleWebSocketMessage(JSON.parse(e.data)); } catch (err) { console.error('Parse error:', err); } };
+            ws.onclose = () => { updateWSStatus(false); setTimeout(connectWebSocket, 5000); };
+            ws.onerror = () => updateWSStatus(false);
         }
         
-        function subscribeToSymbol(symbol) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const subscribeMsg = { action: "SUBSCRIBE", symbols: [symbol] };
-                ws.send(JSON.stringify(subscribeMsg));
-                console.log('Subscribed to:', symbol);
-            }
-        }
+        function subscribeToSymbol(symbol) { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ action: 'SUBSCRIBE', symbols: [symbol] })); }
+        function updateWSStatus(connected) { document.getElementById('wsStatus').className = `ws-status ${connected ? 'connected' : 'disconnected'}`; }
         
-        function updateWSStatus(connected) {
-            const statusDiv = document.getElementById('wsStatus');
-            if (connected) {
-                statusDiv.className = 'ws-status connected';
-                statusDiv.innerHTML = '<span class="status-dot"></span><span>Live</span>';
-            } else {
-                statusDiv.className = 'ws-status disconnected';
-                statusDiv.innerHTML = '<span class="status-dot"></span><span>Reconnecting...</span>';
-            }
-        }
+        function logout() { if (ws) ws.close(); localStorage.clear(); window.location.href = 'signin.html'; }
         
-        // ============ LOGOUT ============
-        function logout() {
-            if (ws) ws.close();
-            localStorage.clear();
-            window.location.href = 'signin.html';
-        }
-        
-        // ============ CLOSE DROPDOWN ON CLICK OUTSIDE ============
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('quickDropdown');
-            const quickBtn = document.querySelector('.quick-action-btn');
-            if (quickBtn && !quickBtn.contains(event.target) && dropdown) {
-                dropdown.classList.remove('show');
-            }
+        // Close dropdowns on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.quick-actions')) document.getElementById('quickDropdown')?.classList.remove('show');
         });
         
         // ============ INITIALIZE ============
@@ -2601,13 +2608,9 @@
             togglePriceFields();
             setAdvancedAction('BUY');
             loadWatchlist();
-            
             setTimeout(async () => {
-                const firstStock = document.getElementById('symbolSelect').options[1]?.value;
-                if (firstStock) {
-                    document.getElementById('symbolSelect').value = firstStock;
-                    await onSymbolChange();
-                }
+                const first = document.getElementById('symbolSelect').options[1]?.value;
+                if (first) { document.getElementById('symbolSelect').value = first; await onSymbolChange(); }
             }, 1000);
         }
         
