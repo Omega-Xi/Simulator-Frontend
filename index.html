@@ -1,203 +1,539 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>Stock Simulator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Telotrade | Professional Trading Infrastructure</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{
+    --bg: #090b0f;
+    --panel: #11161d;
+    --border: #202733;
+    --gold: #c9a96e;
+    --gold-light: #d9b87a;
+    --text: #f5f7fa;
+    --muted: #95a0b3;
+    --card-hover: rgba(201, 169, 110, 0.05);
+}
+*{
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body{
+    font-family: 'Inter', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    position: relative;
+}
+/* Subtle grid background */
+body::before{
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(rgba(255,255,255,.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.02) 1px, transparent 1px);
+    background-size: 44px 44px;
+    pointer-events: none;
+    z-index: 0;
+}
+/* Subtle ambient glow */
+body::after {
+    content: "";
+    position: fixed;
+    top: 30%;
+    left: 20%;
+    width: 80%;
+    height: 60%;
+    background: radial-gradient(ellipse at center, rgba(201,169,110,0.04), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+.container{
+    position: relative;
+    z-index: 2;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px 32px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+/* Navbar */
+.navbar{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 24px;
+    background: rgba(17, 22, 29, 0.7);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    margin-bottom: 20px;
+}
+.logo{
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+.logo span{
+    color: var(--gold);
+    font-weight: 800;
+}
+.nav-actions{
+    display: flex;
+    gap: 12px;
+}
+.btn{
+    padding: 8px 22px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border-radius: 2px;
+}
+.btn-primary{
+    border-color: var(--gold);
+    color: var(--gold);
+}
+.btn-primary:hover{
+    background: rgba(201, 169, 110, 0.1);
+    border-color: var(--gold-light);
+}
+.btn:hover:not(.btn-primary){
+    background: rgba(255,255,255,0.03);
+    border-color: #2f384b;
+}
+/* Hero Grid - properly contained */
+.hero{
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr;
+    gap: 36px;
+    align-items: center;
+    flex: 1;
+    min-height: 0;
+    overflow: visible;
+}
+/* Left side */
+.badge{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 12px;
+    border: 1px solid rgba(201,169,110,0.35);
+    color: var(--gold);
+    margin-bottom: 24px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    background: rgba(201,169,110,0.03);
+}
+.badge i {
+    font-size: 0.65rem;
+}
+h1{
+    font-size: 3.5rem;
+    line-height: 1.1;
+    margin-bottom: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+}
+.accent{
+    color: var(--gold);
+    border-bottom: 2px solid rgba(201,169,110,0.4);
+}
+.desc{
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.55;
+    margin-bottom: 32px;
+    font-size: 0.9rem;
+}
+.cta{
+    display: flex;
+    gap: 14px;
+}
+/* Right Panel - compact, no overflow, balanced height */
+.panel{
+    background: rgba(17, 22, 29, 0.7);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+    overflow: visible;
+}
+.stats{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.stat{
+    border: 1px solid var(--border);
+    padding: 14px 10px;
+    transition: 0.2s;
+    text-align: center;
+}
+.stat:hover {
+    border-color: rgba(201,169,110,0.3);
+}
+.stat h2{
+    color: var(--gold);
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+.stat p{
+    color: var(--muted);
+    margin-top: 5px;
+    font-size: 0.65rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+/* Reduced feature list - cleaner, shorter */
+.features{
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.feature{
+    padding: 10px 14px;
+    border-left: 2px solid var(--gold);
+    background: rgba(255,255,255,.02);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #cdd9f4;
+    transition: 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.feature i {
+    color: var(--gold);
+    font-size: 0.7rem;
+    opacity: 0.8;
+}
+.feature:hover{
+    background: var(--card-hover);
+    padding-left: 18px;
+}
+/* Footer - fixed at bottom but flexible */
+footer{
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 0.68rem;
+    text-align: center;
+    letter-spacing: 0.3px;
+}
+/* Toast messages */
+.toast-msg {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #11161de6;
+    backdrop-filter: blur(12px);
+    border-left: 3px solid var(--gold);
+    padding: 10px 20px;
+    border-radius: 2px;
+    font-size: 0.8rem;
+    z-index: 2000;
+    transform: translateX(450px);
+    transition: transform 0.25s ease;
+    color: var(--text);
+    font-weight: 500;
+    font-family: monospace;
+}
+.toast-msg.show {
+    transform: translateX(0);
+}
+.toast-msg.error { border-left-color: #e06c6c; }
+.toast-msg.success { border-left-color: #7cb87c; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .loader-container {
-            text-align: center;
-            color: white;
-        }
-
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .loader-text {
-            font-size: 18px;
-            opacity: 0.9;
-        }
-
-        .error-container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            max-width: 400px;
-            margin: 20px;
-        }
-
-        .error-container h2 {
-            color: #f44;
-            margin-bottom: 10px;
-        }
-
-        .error-container p {
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        .btn-retry {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-
-        .btn-retry:hover {
-            background: #5a67d8;
-        }
-    </style>
+/* Responsive: maintain no overflow on all devices */
+@media (max-width: 1050px) {
+    .container { padding: 16px 24px; }
+    h1 { font-size: 2.8rem; }
+    .hero { gap: 28px; }
+    .stat h2 { font-size: 1.4rem; }
+}
+@media (max-width: 900px) {
+    body { overflow-y: auto; height: auto; }
+    .container { height: auto; min-height: 100vh; justify-content: flex-start; }
+    .hero { grid-template-columns: 1fr; gap: 28px; }
+    .navbar { margin-bottom: 20px; }
+    .panel { max-height: none; margin-bottom: 12px; }
+    footer { margin-top: 20px; position: relative; }
+}
+@media (max-width: 550px) {
+    .container { padding: 12px 16px; }
+    h1 { font-size: 2rem; }
+    .stats { gap: 8px; }
+    .stat { padding: 10px; }
+    .stat h2 { font-size: 1.2rem; }
+    .feature { padding: 8px 12px; font-size: 0.7rem; }
+}
+</style>
 </head>
 <body>
-    <div id="app">
-        <div class="loader-container">
-            <div class="spinner"></div>
-            <div class="loader-text">Loading Stock Simulator...</div>
+
+<div class="container">
+    <nav class="navbar">
+        <div class="logo">TELO<span>TRADE</span></div>
+        <div class="nav-actions" id="navActions">
+            <button class="btn" id="signinNavBtn"><i class="fas fa-key" style="margin-right: 6px;"></i> Sign In</button>
+            <button class="btn btn-primary" id="launchNavBtn"><i class="fas fa-chart-line" style="margin-right: 6px;"></i> Launch</button>
         </div>
-    </div>
+    </nav>
 
-    <script>
-        // Configuration
-        const STORAGE_KEYS = {
-            TOKEN: 'jwt_token',
-            USER_EMAIL: 'user_email',
-            USER_NAME: 'user_name'
-        };
+    <section class="hero">
+        <div>
+            <div class="badge"><i class="fas fa-bolt"></i> PROFESSIONAL EXECUTION ENVIRONMENT</div>
+            <h1>
+                Precision Execution for
+                <span class="accent">Professional Traders</span>
+            </h1>
+            <p class="desc">
+                A high-performance trading platform delivering advanced charting,
+                real-time market data, low-latency execution, and comprehensive
+                risk management tools for active market participants.
+            </p>
+            <div class="cta" id="ctaButtons">
+                <button class="btn btn-primary" id="heroLaunchBtn"><i class="fas fa-arrow-right"></i> Launch Platform</button>
+                <button class="btn" id="exploreFeaturesBtn"><i class="fas fa-chart-simple"></i> View Features</button>
+            </div>
+        </div>
 
-        // Helper functions
-        const storage = {
-            getToken: () => localStorage.getItem(STORAGE_KEYS.TOKEN),
-            setToken: (token) => localStorage.setItem(STORAGE_KEYS.TOKEN, token),
-            removeToken: () => localStorage.removeItem(STORAGE_KEYS.TOKEN),
-            clearAll: () => {
-                localStorage.removeItem(STORAGE_KEYS.TOKEN);
-                localStorage.removeItem(STORAGE_KEYS.USER_EMAIL);
-                localStorage.removeItem(STORAGE_KEYS.USER_NAME);
-            }
-        };
-
-        // Validate if token exists and is not expired (basic check)
-        function isTokenValid() {
-            const token = storage.getToken();
-            if (!token) return false;
-            
-            try {
-                // Simple JWT expiration check (if token is JWT format)
-                const payload = JSON.parse(atob(token.split('.')[1]));
-                const exp = payload.exp;
-                if (exp) {
-                    const now = Math.floor(Date.now() / 1000);
-                    if (now > exp) {
-                        // Token expired, clear it
-                        storage.clearAll();
-                        return false;
-                    }
-                }
-                return true;
-            } catch (e) {
-                // If token is not JWT format, assume it's valid if exists
-                return true;
-            }
-        }
-
-        // Redirect to appropriate page
-        function redirectToAppropriatePage() {
-            const tokenValid = isTokenValid();
-            
-            // Small delay to ensure smooth transition
-            setTimeout(() => {
-                if (tokenValid) {
-                    // User is logged in, send to dashboard
-                    window.location.href = 'dashboard.html';
-                } else {
-                    // User is not logged in, send to signin page
-                    window.location.href = 'signin.html';
-                }
-            }, 500);
-        }
-
-        // Check if this is first load and show any special messages
-        function checkForMessages() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const message = urlParams.get('message');
-            const error = urlParams.get('error');
-            
-            if (message) {
-                console.log('Info:', message);
-            }
-            if (error) {
-                console.error('Error:', error);
-            }
-        }
-
-        // Handle network errors
-        function handleNetworkError() {
-            const appDiv = document.getElementById('app');
-            appDiv.innerHTML = `
-                <div class="error-container">
-                    <h2>⚠️ Connection Error</h2>
-                    <p>Unable to connect to the server. Please check your internet connection and try again.</p>
-                    <button class="btn-retry" onclick="window.location.reload()">Retry</button>
+        <div class="panel">
+            <div class="stats">
+                <div class="stat">
+                    <h2 id="uptimeStat">99.99%</h2>
+                    <p>Platform Uptime</p>
                 </div>
-            `;
-        }
+                <div class="stat">
+                    <h2 id="latencyStat">&lt;5ms</h2>
+                    <p>Execution Latency</p>
+                </div>
+                <div class="stat">
+                    <h2>50+</h2>
+                    <p>Supported Markets</p>
+                </div>
+                <div class="stat">
+                    <h2>24/7</h2>
+                    <p>Infrastructure Monitoring</p>
+                </div>
+            </div>
 
-        // Main initialization
-        function init() {
-            checkForMessages();
-            
-            // Add offline detection
-            if (!navigator.onLine) {
-                handleNetworkError();
-                return;
+            <!-- Reduced feature list: only 4 core items, clean compact -->
+            <div class="features">
+                <div class="feature"><i class="fas fa-chart-line"></i> Advanced Charting & Technical Analysis</div>
+                <div class="feature"><i class="fas fa-bolt"></i> Multi‑Asset Order Execution</div>
+                <div class="feature"><i class="fas fa-shield-alt"></i> Real‑Time Risk Monitoring</div>
+                <div class="feature"><i class="fas fa-cloud-upload-alt"></i> WebSocket Market Data Streaming</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        © 2026 Telotrade — Professional Trading Infrastructure
+    </footer>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+    // ======================== AUTHENTICATION & NAVIGATION ========================
+    const host = "localhost";
+    const base_url = `https://${host}:7239`;
+    
+    // Toast helper
+    const toastRoot = document.getElementById("toastContainer");
+    function showToast(message, type = "info") {
+        const toast = document.createElement("div");
+        toast.className = `toast-msg ${type}`;
+        const icon = type === 'success' ? 'fa-circle-check' : (type === 'error' ? 'fa-circle-exclamation' : 'fa-info-circle');
+        toast.innerHTML = `<i class="fas ${icon}" style="margin-right: 8px;"></i> ${message}`;
+        toastRoot.appendChild(toast);
+        setTimeout(() => toast.classList.add("show"), 10);
+        setTimeout(() => {
+            toast.classList.remove("show");
+            setTimeout(() => toast.remove(), 300);
+        }, 3200);
+    }
+    
+    let isAuthenticated = false;
+    
+    // Validate token with backend (graceful fallback for missing profile endpoint)
+    async function validateToken(token) {
+        if (!token) return false;
+        try {
+            const response = await fetch(`${base_url}/api/account/profile`, {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+                credentials: "include"
+            });
+            if (response.status === 404) {
+                // profile endpoint not implemented — trust token if exists
+                return true;
             }
-            
-            // Listen for online/offline events
-            window.addEventListener('online', () => {
-                window.location.reload();
-            });
-            
-            window.addEventListener('offline', () => {
-                handleNetworkError();
-            });
-            
-            // Proceed with redirect
-            redirectToAppropriatePage();
+            return response.ok;
+        } catch (err) {
+            console.warn("Validation endpoint unreachable, assuming valid token for demo mode");
+            return true;
         }
-
-        // Start the app
-        init();
-    </script>
+    }
+    
+    async function refreshAuthState() {
+        const storedToken = localStorage.getItem("token");
+        if (!storedToken) {
+            isAuthenticated = false;
+            updateUIForAuth();
+            return;
+        }
+        const valid = await validateToken(storedToken);
+        if (!valid) {
+            localStorage.removeItem("token");
+            isAuthenticated = false;
+            showToast("Session expired. Please sign in again.", "info");
+        } else {
+            isAuthenticated = true;
+            if (!window._welcomeFlag && document.visibilityState !== "hidden") {
+                window._welcomeFlag = true;
+                showToast("Authenticated — dashboard ready", "success");
+            }
+        }
+        updateUIForAuth();
+    }
+    
+    function updateUIForAuth() {
+        const signinNav = document.getElementById("signinNavBtn");
+        const launchNav = document.getElementById("launchNavBtn");
+        const heroLaunch = document.getElementById("heroLaunchBtn");
+        const exploreBtn = document.getElementById("exploreFeaturesBtn");
+        
+        if (isAuthenticated) {
+            // Logged in: all primary actions redirect to dashboard
+            if (signinNav) {
+                signinNav.innerHTML = '<i class="fas fa-chart-line" style="margin-right: 6px;"></i> Dashboard';
+                signinNav.onclick = () => { window.location.href = "dashboard.html"; };
+            }
+            if (launchNav) {
+                launchNav.innerHTML = '<i class="fas fa-chart-simple" style="margin-right: 6px;"></i> Trading Hub';
+                launchNav.onclick = () => { window.location.href = "dashboard.html"; };
+            }
+            if (heroLaunch) {
+                heroLaunch.innerHTML = '<i class="fas fa-arrow-right"></i> Go to Dashboard';
+                heroLaunch.onclick = () => { window.location.href = "dashboard.html"; };
+            }
+        } else {
+            // Not logged in: redirect to signin page
+            if (signinNav) {
+                signinNav.innerHTML = '<i class="fas fa-key" style="margin-right: 6px;"></i> Sign In';
+                signinNav.onclick = () => { window.location.href = "signin.html"; };
+            }
+            if (launchNav) {
+                launchNav.innerHTML = '<i class="fas fa-chart-line" style="margin-right: 6px;"></i> Launch';
+                launchNav.onclick = () => {
+                    showToast("Please sign in to access the trading platform", "error");
+                    setTimeout(() => { window.location.href = "signin.html"; }, 600);
+                };
+            }
+            if (heroLaunch) {
+                heroLaunch.innerHTML = '<i class="fas fa-arrow-right"></i> Launch Platform';
+                heroLaunch.onclick = () => {
+                    showToast("Authentication required. Redirecting to sign in.", "error");
+                    setTimeout(() => { window.location.href = "signin.html"; }, 600);
+                };
+            }
+        }
+        
+        // Explore features button (same for both states - just info toast)
+        if (exploreBtn) {
+            exploreBtn.onclick = () => {
+                showToast("Explore: Advanced charting, order book, real-time risk & WebSocket data", "info");
+                // gentle scroll to panel if needed, but not intrusive
+                const panelEl = document.querySelector(".panel");
+                if (panelEl && window.innerWidth < 900) {
+                    panelEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                }
+            };
+        }
+    }
+    
+    // Animate execution latency & uptime (visual micro-interaction)
+    function animateLatencyAndUptime() {
+        const latencyElem = document.getElementById("latencyStat");
+        const uptimeElem = document.getElementById("uptimeStat");
+        if (latencyElem) {
+            setInterval(() => {
+                const fakeLatency = (Math.random() * 3 + 2.0).toFixed(1);
+                latencyElem.innerHTML = `&lt;${fakeLatency}ms`;
+            }, 4500);
+        }
+        if (uptimeElem) {
+            setInterval(() => {
+                const uptimeVal = (99.97 + Math.random() * 0.028).toFixed(2);
+                uptimeElem.innerText = `${uptimeVal}%`;
+            }, 5200);
+        }
+    }
+    
+    // Handle page visibility and return from signin (token stored)
+    window.addEventListener("pageshow", (event) => {
+        if (event.persisted || document.visibilityState === "visible") {
+            refreshAuthState();
+        }
+    });
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) refreshAuthState();
+    });
+    
+    // Expose helper for debugging / manual logout (optional)
+    window.__telotrade = {
+        logout: () => {
+            localStorage.removeItem("token");
+            refreshAuthState();
+            showToast("Logged out successfully", "success");
+        },
+        status: () => isAuthenticated
+    };
+    
+    // Initialize
+    refreshAuthState();
+    animateLatencyAndUptime();
+    
+    // Fix potential overflow on panel height (safety)
+    const adjustPanelHeight = () => {
+        const heroContainer = document.querySelector('.hero');
+        const panel = document.querySelector('.panel');
+        if (heroContainer && panel && window.innerHeight) {
+            const heroHeight = heroContainer.clientHeight;
+            if (heroHeight > window.innerHeight - 140) {
+                panel.style.maxHeight = 'none';
+            } else {
+                panel.style.maxHeight = '100%';
+            }
+        }
+    };
+    window.addEventListener('resize', () => setTimeout(adjustPanelHeight, 50));
+    setTimeout(adjustPanelHeight, 100);
+    
+    console.log("Telotrade landing — Minimal gold theme, balanced layout, overflow fixed");
+</script>
 </body>
 </html>
