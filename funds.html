@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Funds | Telotrade</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/css/theme.css">
+<link rel="stylesheet" href="app-pages.css">
+
+</head>
+<body>
+<div class="app-container">
+<nav class="navbar">
+  <a class="logo" href="dashboard.html"><i class="fas fa-chart-line"></i>TELO<span>TRADE</span></a>
+  <div class="nav-links">
+    <a href="dashboard.html">Dashboard</a>
+    <a href="portfolio.html">Portfolio</a>
+    <a href="orders.html">Orders</a>
+    <a href="funds.html">Funds</a>
+    <a href="settings.html">Settings</a>
+    <a href="security.html">Security</a>
+    <button data-logout><i class="fas fa-right-from-bracket"></i> Logout</button>
+  </div>
+</nav>
+
+<section class="page-hero"><div class="eyebrow"><i class="fas fa-wallet"></i> FUNDS</div><h1 class="page-title">Cash, realized P&L, and simulator fees.</h1><p class="page-desc">This page summarizes account cash and the approximate flat-fee cost from filled orders.</p></section>
+<div class="summary-grid" id="fundSummary"></div>
+<section class="grid two section"><div class="card"><h2 class="panel-title">Virtual Funds</h2><p>Add/reset funds requires a backend endpoint. Keep these buttons disabled until you add one.</p><div class="actions section"><button class="btn" id="addFunds">Add Virtual Cash</button><button class="btn btn-danger" id="resetAccount">Reset Account</button></div></div><div class="card"><h2 class="panel-title">Fee Model</h2><p>Current simulator model: <b>₹20 flat fee per executed order</b>. This is intentionally simple and easy for team testing.</p></div></section>
+
+<footer class="footer">© 2026 Telotrade — Professional Trading Infrastructure</footer>
+</div>
+<div class="toast-root"></div>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="funds.js"></script>
+</body>
+</html>

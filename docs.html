@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Docs | Telotrade</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/css/theme.css">
+<link rel="stylesheet" href="docs.css">
+
+</head>
+<body>
+<div class="app-container">
+<nav class="navbar">
+  <a class="logo" href="index.html"><i class="fas fa-chart-line"></i>TELO<span>TRADE</span></a>
+  <div class="nav-links">
+    <a href="features.html">Features</a>
+    <a href="docs.html">Docs</a>
+    <a href="signin.html">Sign In</a>
+    <a href="signup.html" class="active">Request Access</a>
+  </div>
+</nav>
+
+<section class="page-hero"><div class="eyebrow"><i class="fas fa-book"></i> API DOCUMENTATION</div><h1 class="page-title">StockSimulator API reference.</h1><p class="page-desc">Controller documentation pages for your backend API.</p></section>
+<section class="grid three docs-grid">
+  <a class="card doc-card" href="account.html"><i class="fas fa-user-circle"></i><h3>Account</h3><p>Signup, signin, refresh, profile, password recovery.</p></a>
+  <a class="card doc-card" href="trade.html"><i class="fas fa-arrow-trend-up"></i><h3>Trade</h3><p>Market, limit, stop-loss, modify, cancel.</p></a>
+  <a class="card doc-card" href="orderbook.html"><i class="fas fa-list"></i><h3>OrderBook</h3><p>Order status and execution history.</p></a>
+  <a class="card doc-card" href="stocks.html"><i class="fas fa-building-columns"></i><h3>Stocks</h3><p>Symbols, lot size, and stock metadata.</p></a>
+  <a class="card doc-card" href="history.html"><i class="fas fa-clock-rotate-left"></i><h3>HistoricData</h3><p>Candles and supported timeframes.</p></a>
+  <a class="card doc-card" href="websocket.html"><i class="fas fa-wifi"></i><h3>WebSocket</h3><p>Live feed, subscriptions, and event messages.</p></a>
+</section>
+
+<footer class="footer">© 2026 Telotrade — Professional Trading Infrastructure</footer>
+</div>
+<div class="toast-root"></div>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

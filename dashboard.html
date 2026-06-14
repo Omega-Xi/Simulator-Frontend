@@ -1,169 +1,132 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
-    <title>Dashboard</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Telotrade Dashboard</title>
+  <script>
+    window.TELOTRADE_API_BASE_URL = "https://44.195.136.91:7239";
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <link rel="stylesheet" href="dashboard.css" />
 </head>
 <body>
-    <table border="2" width="100%" height="100%">
-        <tr height="5%">
-        <th colspan="3">
-            <div class="headerBar">
-                <div class="identityBlock">
-                    <span class="userName"></span>
-                    <span class="userId"></span>
-                </div>
-                <div class="financialBlock">
-                    <span class="pnl negative"></span>
-                    <span class="cashBalance"></span>
-                    <span class="marginStatus"></span>
-                </div>
-                <div class="headerActions">
-                    <button class="settings-btn"><i class="fas fa-cog"></i> Settings</button>
-                    <button class="logout-btn" onclick="logOut()"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                </div>
-            </div>
-        </th>
-        </tr>
-        <tr height="25%">
-            <td width="20%" rowspan="2" id="watchlistarea" valign="top">
-                <div id="watchlistcontainer">
-                <table width="100%" id="watchlisttable">
-                    <tr><th colspan="4">Watchlist<div display="inline-block" style="float: right;" id="addtowatchlistbtn">+</div></th></tr>
-                </table>
-                </div>
-            </td>
-            <td rowspan="3" id="chartarea">
-                <div id="chartLegend" class="chart-legend"></div>
-                <div id="chartControls">
-                    <div id="timeframeSelector">
-                        <button data-tf="1" class="active">1m</button>
-                        <button data-tf="5">5m</button>
-                        <button data-tf="15">15m</button>
-                        <button data-tf="30">30m</button>
-                        <button data-tf="60">1h</button>
-                    </div>
-                    <div id="indicatorSelector">
-                        <button id="toggleSMA" class="active">SMA</button>
-                        <button id="toggleFilledOrders"><i class="fas fa-exchange-alt"></i></button>
-                    </div>
-                </div>
-                <div id="chartTooltip" class="chart-tooltip"></div>
-                <div id="chart"></div>
-            </td>
-            <td width="20%" rowspan="4" id="orderbookarea">
-                <div class="orderBookHeader">
-                    <span>Order Book</span>
-                    <div class="orderBookControls">
-                    <select id="statusFilter" onchange="applyFilterAndSort()">
-                        <option value="all">All</option>
-                        <option value="pending">Pending</option>
-                        <option value="triggerpending">Trigger</option>
-                        <option value="filled">Filled</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                    <select id="sortBy" onchange="applyFilterAndSort()">
-                        <option value="status">Status</option>
-                        <option value="time">Time</option>
-                        <option value="symbol">Symbol</option>
-                        <option value="price">Price</option>
-                    </select>
-                    </div>
-                </div>
-                <!-- Hidden dropdown modal -->
-                <div id="modifyDropdown" class="modify-dropdown hidden">
-                    <h4 id="modifySymbol">Modify Order — </h4>
-                    
-                    <div class="formRow">
-                        <label>Quantity</label>
-                        <input type="number" id="modifyQty">
-                    </div>
-                    
-                    <div class="formRow">
-                        <label>Price</label>
-                        <input type="number" id="modifyPrice">
-                    </div>
-                    
-                    <div class="formRow">
-                        <label>Trigger Price</label>
-                        <input type="number" id="modifyTrigger">
-                    </div>
-                    
-                    <div class="formRow">
-                        <label>Validity</label>
-                        <select id="modifyValidity">
-                        <option value="day">Day</option>
-                        <option value="IOC">IOC</option>
-                        </select>
-                    </div>
-                    
-                    <div class="formActions">
-                        <button class="saveBtn" onclick="modifyOrder()">Confirm</button>
-                        <button class="cancelBtn" onclick="closeModifyDropdown()"></button>
-                    </div>
-                </div>
-                <div id="orderBookPanel">
-                    <div class="orderBookContainer">
-                        <!-- Orders injected here -->
-                    </div>
-                </div>
-            </td>
-        </tr>
-        <tr height="25%"></tr>
-        <tr height="25%">
-            <td rowspan="2" id="positionsarea">
-                <div class="holdingsHeader">
-                    <span class="totalPnL">Total PnL: --</span>
-                    <button class="exitAllBtn" onclick="exitAll()">Exit All</button>
-                </div>
-                <div id="holdingsPanel">
-                </div>
-            </td>
-        </tr>
-        <tr height="20%">
-            <td id="placeorderarea">
-                <div id="orderPanel">
-                    <button id="buyBtn" class="order-btn buy">BUY</button>
+  <div class="appShell">
+    <header class="topBar">
+      <div class="brandBlock">
+        <div class="brandMark">T</div>
+        <div>
+          <div class="brandName">TELO<span>TRADE</span></div>
+          <div class="brandSub">Professional Trading Simulator</div>
+        </div>
+      </div>
+      <div class="accountMetrics">
+        <div class="metricPill"><span class="metricLabel">Cash</span><span class="metricValue cashBalance">₹--</span></div>
+        <div class="metricPill"><span class="metricLabel">Realized</span><span class="metricValue realizedPnL">₹--</span></div>
+        <div class="metricPill"><span class="metricLabel">Unrealized</span><span class="metricValue totalPnL">₹--</span></div>
+      </div>
+      <div class="systemStatus">
+        <div class="statusChip" id="marketStatus"><span class="statusDot muted"></span><span>Market --</span></div>
+        <div class="statusChip" id="feedStatus"><span class="statusDot muted"></span><span>Feed --</span></div>
+        <button class="ghostBtn" id="shortcutHelpBtn" title="Keyboard shortcuts"><i class="fa-regular fa-keyboard"></i></button>
+        <button class="ghostBtn" onclick="location.href='settings.html'" title="Settings"><i class="fa-solid fa-gear"></i></button>
+        <button class="logoutBtn" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
+      </div>
+    </header>
 
-                    <div id="orderForm">
-                        <div>
-                            <label>Lots<small id="lotinfo"></small><span id="estimatedAmount" class="est-badge"></span></label>
-                            <div class="lot-row">
-                                <input type="number" id="orderLot" placeholder="Enter lots" min="1">
-                            </div>
-                        </div>
+    <aside class="panel watchlistPanel">
+      <div class="panelHeader">
+        <div><h2>Watchlist</h2><p>Live symbols and exposure</p></div>
+        <button class="iconBtn brand" id="addToWatchlistBtn" title="Add symbol"><i class="fa-solid fa-plus"></i></button>
+      </div>
+      <div class="watchlistTableWrap">
+        <table id="watchlistTable">
+          <thead><tr><th>Symbol</th><th>LTP</th><th>Vol</th><th></th></tr></thead>
+          <tbody id="watchlistBody"></tbody>
+        </table>
+        <div class="emptyState" id="watchlistEmpty"><i class="fa-solid fa-chart-line"></i><strong>No symbols yet</strong><span>Press + to add your first stock</span></div>
+      </div>
+    </aside>
 
-                        <div>
-                            <label>Order Type</label>
-                            <select id="orderType">
-                            <option value="market">Market</option>
-                            <option value="limit">Limit</option>
-                            <option value="stoploss">Stop Loss</option>
-                            <option value="stoplimit">Stop Limit</option>
-                            </select>
-                        </div>
+    <main class="panel chartPanel">
+      <div class="symbolStrip">
+        <div class="symbolMain"><span id="selectedSymbolTitle">Select a symbol</span><small id="selectedSymbolSub">Use watchlist ↑ ↓ to navigate</small></div>
+        <div class="symbolStats">
+          <div><span>LTP</span><strong id="symbolLtp">₹--</strong></div>
+          <div><span>Position</span><strong id="symbolPosition">--</strong></div>
+          <div><span>P&L</span><strong id="symbolPnl">₹--</strong></div>
+        </div>
+      </div>
+      <div id="chartLegend" class="chartLegend"></div>
+      <div id="chartControls" class="chartControls">
+        <div id="timeframeSelector" class="segmented">
+          <button data-tf="1" class="active">1m</button><button data-tf="5">5m</button><button data-tf="15">15m</button><button data-tf="30">30m</button><button data-tf="60">1h</button>
+        </div>
+        <div id="indicatorSelector" class="segmented">
+          <button id="toggleSMA" class="active">SMA</button><button id="toggleFilledOrders" title="Filled orders"><i class="fa-solid fa-exchange-alt"></i></button>
+        </div>
+      </div>
+      <div id="chartTooltip" class="chartTooltip"></div>
+      <div id="chart"></div>
+    </main>
 
-                        <div>
-                            <label>Limit Price</label>
-                            <input type="number" id="limitPrice" placeholder="Enter limit price" disabled>
-                        </div>
+    <aside class="panel ordersPanel">
+      <div class="panelHeader"><div><h2>Order Book</h2><p>Manage open and executed orders</p></div></div>
+      <div class="orderTabs" id="orderTabs">
+        <button data-status="all" class="active">All</button><button data-status="pending">Pending</button><button data-status="triggerpending">Trigger</button><button data-status="filled">Filled</button><button data-status="cancelled">Cancelled</button><button data-status="rejected">Rejected</button>
+      </div>
+      <div class="orderTools"><input id="orderSearch" type="search" placeholder="Search symbol/order..." /><select id="sortBy"><option value="time">Latest</option><option value="status">Status</option><option value="symbol">Symbol</option><option value="price">Price</option></select></div>
+      <div id="modifyDropdown" class="modifyDropdown">
+        <div class="modifyTitle"><h4 id="modifySymbol">Modify Order</h4><button onclick="closeModifyDropdown()">×</button></div>
+        <div class="modifyGrid"><label>Quantity <input type="number" id="modifyQty" /></label><label>Price <input type="number" id="modifyPrice" step="0.05" /></label><label>Trigger <input type="number" id="modifyTrigger" step="0.05" /></label><label>Validity <select id="modifyValidity"><option value="day">Day</option><option value="IOC">IOC</option></select></label></div>
+        <div class="modifyActions"><button class="softBtn" onclick="closeModifyDropdown()">Cancel</button><button class="primaryBtn" onclick="modifyOrder()">Confirm</button></div>
+      </div>
+      <div id="orderBookPanel" class="orderBookPanel"><div class="orderBookContainer"></div></div>
+    </aside>
 
-                        <div>
-                            <label>Trigger Price</label>
-                            <input type="number" id="triggerPrice" placeholder="Enter trigger price" disabled>
-                        </div>
-                    </div>
+    <section class="panel positionsPanel">
+      <div class="panelHeader compact"><div><h2>Positions</h2><p>Open exposure and live P&L</p></div><button class="dangerSoftBtn exitAllBtn" onclick="exitAll()">Exit All</button></div>
+      <div id="holdingsPanel" class="holdingsPanel"></div>
+    </section>
 
+    <section class="panel orderTicket" data-side="buy">
+      <div class="ticketTop">
+        <div><h2 id="ticketSymbol">--</h2><p id="ticketMeta">Flat fee ₹20/order · Short selling enabled</p></div>
+        <div class="shortcutHint"><span><kbd>B</kbd>/<kbd>S</kbd> Side</span><span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> Place</span><span><kbd>?</kbd> Help</span></div>
+      </div>
+      <div class="sideToggle"><button id="buyBtn" class="orderBtn buy active-side">BUY</button><button id="sellBtn" class="orderBtn sell">SELL</button></div>
+      <div id="orderForm" class="ticketGrid">
+        <label>Lots <small id="lotInfo"></small><input type="number" id="orderLot" min="1" value="1" /></label>
+        <label>Order Type <select id="orderType"><option value="market">Market</option><option value="limit">Limit</option><option value="stoploss">SL-M</option><option value="stoplimit">SL</option></select></label>
+        <label>Limit Price <input type="number" id="limitPrice" placeholder="Limit price" step="0.05" disabled /></label>
+        <label>Trigger Price <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05" disabled /></label>
+      </div>
+      <div id="estimateBox" class="estimateBox"><div class="emptyMini">Select symbol and quantity to see estimate</div></div>
+      <button id="submitOrderBtn" class="placeOrderBtn"><i class="fa-solid fa-bolt"></i> Place Selected Order</button>
+    </section>
+  </div>
 
-                    <button id="sellBtn" class="order-btn sell">SELL</button>
-                </div>
-            </td>
-        </tr>
-    </table>
-    <script src="watchlist.js"></script>
+  <div id="stockModal" class="modalOverlay hidden">
+    <div class="modalCard stockModalCard">
+      <div class="modalHeader"><div><h3>Add Symbol</h3><p>Select stocks to stream into your watchlist</p></div><button class="iconBtn" id="closeStockModal">×</button></div>
+      <input id="stockSearch" class="modalSearch" type="search" placeholder="Search stocks..." />
+      <ul id="stockList" class="stockList"></ul>
+    </div>
+  </div>
+
+  <div id="shortcutModal" class="modalOverlay hidden">
+    <div class="modalCard shortcutCard">
+      <div class="modalHeader"><div><h3>Keyboard Shortcuts</h3><p>Trade and navigate without touching the mouse</p></div><button class="iconBtn" id="closeShortcutModal">×</button></div>
+      <div class="shortcutGrid">
+        <div><kbd>↑</kbd>/<kbd>↓</kbd><span>Move watchlist</span></div><div><kbd>B</kbd><span>Select Buy</span></div><div><kbd>S</kbd><span>Select Sell</span></div><div><kbd>Ctrl</kbd> + <kbd>Enter</kbd><span>Place selected order</span></div><div><kbd>Alt</kbd> + <kbd>↑</kbd><span>Increase lots</span></div><div><kbd>Alt</kbd> + <kbd>↓</kbd><span>Decrease lots</span></div><div><kbd>1</kbd>-<kbd>5</kbd><span>Change timeframe</span></div><div><kbd>X</kbd><span>Square off selected</span></div><div><kbd>Shift</kbd> + <kbd>X</kbd><span>Exit all positions</span></div><div><kbd>R</kbd><span>Reset chart</span></div><div><kbd>I</kbd><span>Toggle SMA</span></div><div><kbd>O</kbd><span>Toggle order markers</span></div><div><kbd>Esc</kbd><span>Close / blur</span></div><div><kbd>?</kbd><span>Open this help</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="toastContainer"></div>
+  <script src="dashboard.js"></script>
 </body>
 </html>

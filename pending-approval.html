@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Request Access | Telotrade</title>
+<title>Pending Approval | Telotrade</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <link rel="stylesheet" href="assets/css/theme.css">
@@ -22,17 +22,16 @@
   </div>
 </nav>
 
-<section class="auth-shell">
-  <div class="auth-copy"><div class="eyebrow"><i class="fas fa-user-plus"></i> RESTRICTED TEAM ACCESS</div><h1>Create your team account.</h1><p>After signup, verify your email and contact the Telotrade team for approval. Access is not automatic.</p></div>
-  <form class="card form auth-card" id="signupForm">
-    <h2>Request Access</h2>
-    <div class="field"><label>Full Name</label><input class="input" id="name" type="text" required></div>
-    <div class="field"><label>Email</label><input class="input" id="email" type="email" required></div>
-    <div class="field"><label>Password</label><input class="input" id="password" type="password" required></div>
-    <div class="field"><label><input id="margin" type="checkbox"> Enable simulator margin mode</label></div>
-    <button class="btn btn-primary" type="submit">Create Account</button>
-    <p class="muted">Already approved? <a class="accent" href="signin.html">Sign in</a></p>
-  </form>
+<section class="success-state card">
+  <i class="fas fa-hourglass-half"></i>
+  <h1>Account pending approval</h1>
+  <p class="muted">Verify your email first, then contact the Telotrade team. Your account must be manually approved before you can sign in.</p>
+  <div class="field" style="margin-top:18px"><label>Email</label><input class="input" id="email" type="email" placeholder="your@email.com"></div>
+  <div class="helper-row">
+    <button class="btn btn-primary" id="resendVerification"><i class="fas fa-envelope"></i> Resend Verification</button>
+    <button class="btn" id="requestApproval"><i class="fas fa-user-check"></i> Request Approval Again</button>
+    <a class="btn" href="signin.html">Back to Sign In</a>
+  </div>
 </section>
 
 <footer class="footer">© 2026 Telotrade — Professional Trading Infrastructure</footer>
@@ -40,6 +39,6 @@
 <div class="toast-root"></div>
 <script src="assets/js/api.js"></script>
 <script src="assets/js/ui.js"></script>
-<script src="signup.js"></script>
+<script src="pending-approval.js"></script>
 </body>
 </html>

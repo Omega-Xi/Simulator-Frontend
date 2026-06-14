@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AccountController | Telotrade Docs</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/css/theme.css">
+<link rel="stylesheet" href="docs.css">
+
+</head>
+<body>
+<div class="app-container">
+<nav class="navbar">
+  <a class="logo" href="index.html"><i class="fas fa-chart-line"></i>TELO<span>TRADE</span></a>
+  <div class="nav-links">
+    <a href="features.html">Features</a>
+    <a href="docs.html">Docs</a>
+    <a href="signin.html">Sign In</a>
+    <a href="signup.html" class="active">Request Access</a>
+  </div>
+</nav>
+<section class="page-hero"><div class="eyebrow"><i class="fas fa-user-circle"></i> CONTROLLER</div><h1 class="page-title">AccountController</h1><p class="page-desc">Generated reference page. Keep this aligned with your ASP.NET Core controller implementation.</p></section><section><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/signup</span><p style="margin-top:8px">Create a new account and trigger email verification/admin approval.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/signin?useCookie=true</span><p style="margin-top:8px">Authenticate. Browser flow sets refresh token in HttpOnly cookie and returns access token.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/refresh?useCookie=true</span><p style="margin-top:8px">Rotate refresh token and return a new access token.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/signout?useCookie=true</span><p style="margin-top:8px">Revoke current refresh session and clear cookie.</p></div><div class="endpoint card compact"><span class="method">GET</span><span class="path">/api/account/details</span><p style="margin-top:8px">Return profile, cash balance, holdings, and realized P&L.</p></div><div class="endpoint card compact"><span class="method">PUT</span><span class="path">/api/account/update</span><p style="margin-top:8px">Update name and margin preference.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/change-password</span><p style="margin-top:8px">Change password and invalidate sessions.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/forgot-password</span><p style="margin-top:8px">Send password reset email.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/reset-password</span><p style="margin-top:8px">Confirm reset token and set new password.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/resend-verification</span><p style="margin-top:8px">Send a new verification email.</p></div><div class="endpoint card compact"><span class="method">POST</span><span class="path">/api/account/approval-request</span><p style="margin-top:8px">Request admin approval email again.</p></div><div class="endpoint card compact"><span class="method">GET</span><span class="path">/api/account/verify-email</span><p style="margin-top:8px">Verify email by userId and token query parameters.</p></div></section><section class="card section"><h2 class="panel-title">Authentication</h2><p>Protected endpoints require <code>Authorization: Bearer &lt;access-token&gt;</code>. Browser refresh flow should use <code>credentials: "include"</code>.</p></section>
+<footer class="footer">© 2026 Telotrade — Professional Trading Infrastructure</footer>
+</div>
+<div class="toast-root"></div>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="docs.js"></script>
+</body>
+</html>

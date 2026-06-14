@@ -1,40 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script type="module">
-        import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-    </script>
-    <link rel="stylesheet" href="signin.css">
-    <title>Sign-In</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In | Telotrade</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="assets/css/theme.css">
+<link rel="stylesheet" href="auth.css">
+
 </head>
 <body>
-    <div id="bg"></div>
-    <div class="form-container">
-        <h2>Sign In</h2>
-        <form>
-            <!-- Email -->
-             <label for="email">Email</label>
-             <input type="email" name="email" id="email" placeholder="Enter your email" required>
+<div class="app-container">
+<nav class="navbar">
+  <a class="logo" href="index.html"><i class="fas fa-chart-line"></i>TELO<span>TRADE</span></a>
+  <div class="nav-links">
+    <a href="features.html">Features</a>
+    <a href="docs.html">Docs</a>
+    <a href="signin.html">Sign In</a>
+    <a href="signup.html" class="active">Request Access</a>
+  </div>
+</nav>
 
-            <!-- Password -->
-             <label for="password">Password</label>
-             <input type="password" name="password" id="password" placeholder="Enter your password" required>
-             <div id="toggle">👁️</div>
-            <!-- Remember me + Forgot password -->
-             <div class="form-options">
-                <a href="forgotpassword.html">Forgot password?</a>
-             </div>
+<section class="auth-shell">
+  <div class="auth-copy"><div class="eyebrow"><i class="fas fa-key"></i> TEAM ACCESS</div><h1>Sign in to Telotrade.</h1><p>Access is restricted to approved team members. Your refresh token is stored as an HttpOnly cookie when browser mode is enabled.</p></div>
+  <form class="card form auth-card" id="signinForm">
+    <h2>Sign In</h2>
+    <div class="field"><label>Email</label><input class="input" id="email" type="email" autocomplete="email" required></div>
+    <div class="field"><label>Password</label><div class="input-row"><input class="input" id="password" type="password" autocomplete="current-password" required><button class="password-toggle" id="toggle" type="button">👁️</button></div></div>
+    <button class="btn btn-primary" type="submit">Sign In</button>
+    <p class="muted">No access yet? <a class="accent" href="signup.html">Request access</a> · <a class="accent" href="forgot-password.html">Forgot password?</a></p>
+  </form>
+</section>
 
-            <!-- Submit button -->
-             <button type="submit">Sign In</button>
-
-            <!-- Extra link -->
-             <p class="signup-text">Don't have an account? <a href="signup.html">Sign Up</a></p>
-        </form>
-    </div>
-    <script type="module" src="threejs-bg.js"></script>
-    <script src="signin.js"></script>
+<footer class="footer">© 2026 Telotrade — Professional Trading Infrastructure</footer>
+</div>
+<div class="toast-root"></div>
+<script src="assets/js/api.js"></script>
+<script src="assets/js/ui.js"></script>
+<script src="signin.js"></script>
 </body>
 </html>

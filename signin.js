@@ -1,59 +1,25 @@
-const host = "44.195.136.91"
-const base_url = `https://${host}:7239`;
 document.addEventListener("DOMContentLoaded", () => {
-  const form = document.querySelector("form");
+  const form = document.getElementById("signinForm");
   const passwordInput = document.getElementById("password");
-  const toggle = document.getElementById("toggle");
-  toggle.addEventListener("click",()=>{
-    const isHidden = passwordInput.type === "password";
-    passwordInput.type = isHidden ? "text" : "password";
-    toggle.textContent = isHidden ? "🙈" : "👁️"; // change icon
+  document.getElementById("toggle").addEventListener("click", () => {
+    const hidden = passwordInput.type === "password";
+    passwordInput.type = hidden ? "text" : "password";
+    document.getElementById("toggle").textContent = hidden ? "🙈" : "👁️";
   });
-
-  form.addEventListener("submit", async (e) => {
+  form.addEventListener("submit", async e => {
     e.preventDefault();
-
     const email = document.getElementById("email").value.trim();
-    const password = document.getElementById("password").value.trim();
-
-    if (!email || !password) {
-      showToast("Please fill in all fields.","error");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${base_url}/api/account/signin?useCookie=true`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        localStorage.setItem("token", data.TOKEN);
-        showToast("Sign-in successful!","success");
-        form.reset();
-        setTimeout(()=>{ window.location.href = "dashboard.html";},3000) // redirect
-      } else {
-        const error = await response.text();
-        console.log(error);
-        showToast(error,"error");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(err,"error");
-    }
+    const password = passwordInput.value;
+    if(!email || !password){ showToast("Please fill in all fields.", "error"); return; }
+    const btn = form.querySelector("button[type='submit']"); btn.disabled = true; btn.textContent = "Signing in...";
+    try{
+      const res = await fetch(`${base_url}/api/account/signin?useCookie=true`, { method:"POST", credentials:"include", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ EMAIL:email, PASSWORD:password }) });
+      if(!res.ok) throw new Error(await readErrorMessage(res));
+      const data = await res.json();
+      setAccessToken(data.TOKEN || data.token);
+      showToast("Sign-in successful.", "success");
+      setTimeout(()=> window.location.href = "dashboard.html", 600);
+    }catch(err){ showToast(err.message || "Sign-in failed.", "error"); }
+    finally{ btn.disabled=false; btn.textContent="Sign In"; }
   });
 });
-
-function showToast(message,type){
-    const toast = document.createElement("div");
-    toast.className = `toast ${type}`;
-    toast.innerText = message;
-    document.body.appendChild(toast);
-    setTimeout(()=> toast.classList.add("show"),50);
-    setTimeout(()=>{
-        toast.classList.remove("show");
-        setTimeout(()=>toast.remove(),300);
-    },3000);
-}
