@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -9,11 +10,13 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
   <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <link rel="stylesheet" href="dashboard.css" />
 </head>
+
 <body>
   <div class="appShell">
     <header class="topBar">
@@ -25,36 +28,56 @@
         </div>
       </div>
       <div class="accountMetrics">
-        <div class="metricPill"><span class="metricLabel">Cash</span><span class="metricValue cashBalance">₹--</span></div>
-        <div class="metricPill"><span class="metricLabel">Realized</span><span class="metricValue realizedPnL">₹--</span></div>
-        <div class="metricPill"><span class="metricLabel">Unrealized</span><span class="metricValue totalPnL">₹--</span></div>
+        <div class="metricPill"><span class="metricLabel">Cash</span><span class="metricValue cashBalance">₹--</span>
+        </div>
+        <div class="metricPill"><span class="metricLabel">Realized</span><span
+            class="metricValue realizedPnL">₹--</span></div>
+        <div class="metricPill"><span class="metricLabel">Unrealized</span><span class="metricValue totalPnL">₹--</span>
+        </div>
       </div>
       <div class="systemStatus">
         <div class="statusChip" id="marketStatus"><span class="statusDot muted"></span><span>Market --</span></div>
         <div class="statusChip" id="feedStatus"><span class="statusDot muted"></span><span>Feed --</span></div>
-        <button class="ghostBtn" id="shortcutHelpBtn" title="Keyboard shortcuts"><i class="fa-regular fa-keyboard"></i></button>
-        <button class="ghostBtn" onclick="location.href='settings.html'" title="Settings"><i class="fa-solid fa-gear"></i></button>
+        <button class="ghostBtn" id="presetSettingsBtn" title="Preset order settings"><i
+            class="fa-solid fa-sliders"></i></button>
+        <button class="ghostBtn" id="shortcutHelpBtn" title="Keyboard shortcuts"><i
+            class="fa-regular fa-keyboard"></i></button>
+        <button class="ghostBtn" onclick="location.href='settings.html'" title="Settings"><i
+            class="fa-solid fa-gear"></i></button>
         <button class="logoutBtn" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i>Logout</button>
       </div>
     </header>
 
     <aside class="panel watchlistPanel">
       <div class="panelHeader">
-        <div><h2>Watchlist</h2><p>Live symbols and exposure</p></div>
-        <button class="iconBtn brand" id="addToWatchlistBtn" title="Add symbol"><i class="fa-solid fa-plus"></i></button>
+        <div>
+          <h2>Watchlist</h2>
+          <p>Live symbols and exposure</p>
+        </div>
+        <button class="iconBtn brand" id="addToWatchlistBtn" title="Add symbol"><i
+            class="fa-solid fa-plus"></i></button>
       </div>
       <div class="watchlistTableWrap">
         <table id="watchlistTable">
-          <thead><tr><th>Symbol</th><th>LTP</th><th>Vol</th><th></th></tr></thead>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>LTP</th>
+              <th>VOL</th>
+              <th></th>
+            </tr>
+          </thead>
           <tbody id="watchlistBody"></tbody>
         </table>
-        <div class="emptyState" id="watchlistEmpty"><i class="fa-solid fa-chart-line"></i><strong>No symbols yet</strong><span>Press + to add your first stock</span></div>
+        <div class="emptyState" id="watchlistEmpty"><i class="fa-solid fa-chart-line"></i><strong>No symbols
+            yet</strong><span>Press + to add your first stock</span></div>
       </div>
     </aside>
 
     <main class="panel chartPanel">
       <div class="symbolStrip">
-        <div class="symbolMain"><span id="selectedSymbolTitle">Select a symbol</span><small id="selectedSymbolSub">Use watchlist ↑ ↓ to navigate</small></div>
+        <div class="symbolMain"><span id="selectedSymbolTitle">Select a symbol</span><small id="selectedSymbolSub">Use
+            watchlist ↑ ↓ to navigate</small></div>
         <div class="symbolStats">
           <div><span>LTP</span><strong id="symbolLtp">₹--</strong></div>
           <div><span>Position</span><strong id="symbolPosition">--</strong></div>
@@ -64,10 +87,13 @@
       <div id="chartLegend" class="chartLegend"></div>
       <div id="chartControls" class="chartControls">
         <div id="timeframeSelector" class="segmented">
-          <button data-tf="1" class="active">1m</button><button data-tf="5">5m</button><button data-tf="15">15m</button><button data-tf="30">30m</button><button data-tf="60">1h</button>
+          <button data-tf="1" class="active">1m</button><button data-tf="5">5m</button><button
+            data-tf="15">15m</button><button data-tf="30">30m</button><button data-tf="60">1h</button>
         </div>
         <div id="indicatorSelector" class="segmented">
-          <button id="toggleSMA" class="active">SMA</button><button id="toggleFilledOrders" title="Filled orders"><i class="fa-solid fa-exchange-alt"></i></button>
+          <button id="toggleSMA" class="active">SMA</button>
+          <button id="toggleFilledOrders" title="Filled orders"><i class="fa-solid fa-exchange-alt"></i></button>
+          <button id="toggleFullscreenChart" title="Fullscreen chart"><i class="fa-solid fa-expand"></i></button>
         </div>
       </div>
       <div id="chartTooltip" class="chartTooltip"></div>
@@ -75,44 +101,91 @@
     </main>
 
     <aside class="panel ordersPanel">
-      <div class="panelHeader"><div><h2>Order Book</h2><p>Manage open and executed orders</p></div></div>
+      <div class="panelHeader">
+        <div>
+          <h2>Order Book</h2>
+          <p>Manage open and executed orders</p>
+        </div>
+      </div>
       <div class="orderTabs" id="orderTabs">
-        <button data-status="all" class="active">All</button><button data-status="pending">Pending</button><button data-status="triggerpending">Trigger</button><button data-status="filled">Filled</button><button data-status="cancelled">Cancelled</button><button data-status="rejected">Rejected</button>
+        <button data-status="all" class="active">All</button><button data-status="pending">Pending</button><button
+          data-status="triggerpending">Trigger</button><button data-status="filled">Filled</button><button
+          data-status="cancelled">Cancelled</button><button data-status="rejected">Rejected</button>
       </div>
-      <div class="orderTools"><input id="orderSearch" type="search" placeholder="Search symbol/order..." /><select id="sortBy"><option value="time">Latest</option><option value="status">Status</option><option value="symbol">Symbol</option><option value="price">Price</option></select></div>
+      <div class="orderTools"><input id="orderSearch" type="search" placeholder="Search symbol/order..." /><select
+          id="sortBy">
+          <option value="time">Latest</option>
+          <option value="status">Status</option>
+          <option value="symbol">Symbol</option>
+          <option value="price">Price</option>
+        </select></div>
       <div id="modifyDropdown" class="modifyDropdown">
-        <div class="modifyTitle"><h4 id="modifySymbol">Modify Order</h4><button onclick="closeModifyDropdown()">×</button></div>
-        <div class="modifyGrid"><label>Quantity <input type="number" id="modifyQty" /></label><label>Price <input type="number" id="modifyPrice" step="0.05" /></label><label>Trigger <input type="number" id="modifyTrigger" step="0.05" /></label><label>Validity <select id="modifyValidity"><option value="day">Day</option><option value="IOC">IOC</option></select></label></div>
-        <div class="modifyActions"><button class="softBtn" onclick="closeModifyDropdown()">Cancel</button><button class="primaryBtn" onclick="modifyOrder()">Confirm</button></div>
+        <div class="modifyTitle">
+          <h4 id="modifySymbol">Modify Order</h4><button onclick="closeModifyDropdown()">×</button>
+        </div>
+        <div class="modifyGrid"><label>Quantity <input type="number" id="modifyQty" /></label><label>Price <input
+              type="number" id="modifyPrice" step="0.05" /></label><label>Trigger <input type="number"
+              id="modifyTrigger" step="0.05" /></label><label>Validity <select id="modifyValidity">
+              <option value="day">Day</option>
+              <option value="IOC">IOC</option>
+            </select></label></div>
+        <div class="modifyActions"><button class="softBtn" onclick="closeModifyDropdown()">Cancel</button><button
+            class="primaryBtn" onclick="modifyOrder()">Confirm</button></div>
       </div>
-      <div id="orderBookPanel" class="orderBookPanel"><div class="orderBookContainer"></div></div>
+      <div id="orderBookPanel" class="orderBookPanel">
+        <div class="orderBookContainer"></div>
+      </div>
     </aside>
 
     <section class="panel positionsPanel">
-      <div class="panelHeader compact"><div><h2>Positions</h2><p>Open exposure and live P&L</p></div><button class="dangerSoftBtn exitAllBtn" onclick="exitAll()">Exit All</button></div>
+      <div class="panelHeader compact">
+        <div>
+          <h2>Positions</h2>
+          <p>Open exposure and live P&L</p>
+        </div><button class="dangerSoftBtn exitAllBtn" onclick="exitAll()">Exit All</button>
+      </div>
       <div id="holdingsPanel" class="holdingsPanel"></div>
     </section>
 
     <section class="panel orderTicket" data-side="buy">
       <div class="ticketTop">
-        <div><h2 id="ticketSymbol">--</h2><p id="ticketMeta">Flat fee ₹20/order · Short selling enabled</p></div>
-        <div class="shortcutHint"><span><kbd>B</kbd>/<kbd>S</kbd> Side</span><span><kbd>Ctrl</kbd> + <kbd>Enter</kbd> Place</span><span><kbd>?</kbd> Help</span></div>
+        <div>
+          <h2 id="ticketSymbol">--</h2>
+          <p id="ticketMeta">Flat fee ₹20/order · Short selling enabled</p>
+        </div>
+        <div class="shortcutHint"><span><kbd>B</kbd>/<kbd>S</kbd> Side</span><span><kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+            Place</span><span><kbd>?</kbd> Help</span></div>
       </div>
-      <div class="sideToggle"><button id="buyBtn" class="orderBtn buy active-side">BUY</button><button id="sellBtn" class="orderBtn sell">SELL</button></div>
+      <div class="sideToggle"><button id="buyBtn" class="orderBtn buy active-side">BUY</button><button id="sellBtn"
+          class="orderBtn sell">SELL</button></div>
       <div id="orderForm" class="ticketGrid">
         <label>Lots <small id="lotInfo"></small><input type="number" id="orderLot" min="1" value="1" /></label>
-        <label>Order Type <select id="orderType"><option value="market">Market</option><option value="limit">Limit</option><option value="stoploss">SL-M</option><option value="stoplimit">SL</option></select></label>
-        <label>Limit Price <input type="number" id="limitPrice" placeholder="Limit price" step="0.05" disabled /></label>
-        <label>Trigger Price <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05" disabled /></label>
+        <label>Order Type <select id="orderType">
+            <option value="market">Market</option>
+            <option value="limit">Limit</option>
+            <option value="stoploss">SL-M</option>
+            <option value="stoplimit">SL</option>
+          </select></label>
+        <label>Limit Price <input type="number" id="limitPrice" placeholder="Limit price" step="0.05"
+            disabled /></label>
+        <label>Trigger Price <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05"
+            disabled /></label>
       </div>
-      <div id="estimateBox" class="estimateBox"><div class="emptyMini">Select symbol and quantity to see estimate</div></div>
-      <button id="submitOrderBtn" class="placeOrderBtn"><i class="fa-solid fa-bolt"></i> Place Selected Order</button>
+      <div id="estimateBox" class="estimateBox">
+        <div class="emptyMini">Select symbol and quantity to see estimate</div>
+      </div>
+      <button id="submitOrderBtn" class="placeOrderBtn"><i class="fa-solid fa-bolt"></i> Place Order</button>
     </section>
   </div>
 
   <div id="stockModal" class="modalOverlay hidden">
     <div class="modalCard stockModalCard">
-      <div class="modalHeader"><div><h3>Add Symbol</h3><p>Select stocks to stream into your watchlist</p></div><button class="iconBtn" id="closeStockModal">×</button></div>
+      <div class="modalHeader">
+        <div>
+          <h3>Add Symbol</h3>
+          <p>Select stocks to stream into your watchlist</p>
+        </div><button class="iconBtn" id="closeStockModal">×</button>
+      </div>
       <input id="stockSearch" class="modalSearch" type="search" placeholder="Search stocks..." />
       <ul id="stockList" class="stockList"></ul>
     </div>
@@ -120,13 +193,136 @@
 
   <div id="shortcutModal" class="modalOverlay hidden">
     <div class="modalCard shortcutCard">
-      <div class="modalHeader"><div><h3>Keyboard Shortcuts</h3><p>Trade and navigate without touching the mouse</p></div><button class="iconBtn" id="closeShortcutModal">×</button></div>
+      <div class="modalHeader">
+        <div>
+          <h3>Keyboard Shortcuts</h3>
+          <p>Trade and navigate without touching the mouse</p>
+        </div><button class="iconBtn" id="closeShortcutModal">×</button>
+      </div>
       <div class="shortcutGrid">
-        <div><kbd>↑</kbd>/<kbd>↓</kbd><span>Move watchlist</span></div><div><kbd>B</kbd><span>Select Buy</span></div><div><kbd>S</kbd><span>Select Sell</span></div><div><kbd>Ctrl</kbd> + <kbd>Enter</kbd><span>Place selected order</span></div><div><kbd>Alt</kbd> + <kbd>↑</kbd><span>Increase lots</span></div><div><kbd>Alt</kbd> + <kbd>↓</kbd><span>Decrease lots</span></div><div><kbd>1</kbd>-<kbd>5</kbd><span>Change timeframe</span></div><div><kbd>X</kbd><span>Square off selected</span></div><div><kbd>Shift</kbd> + <kbd>X</kbd><span>Exit all positions</span></div><div><kbd>R</kbd><span>Reset chart</span></div><div><kbd>I</kbd><span>Toggle SMA</span></div><div><kbd>O</kbd><span>Toggle order markers</span></div><div><kbd>Esc</kbd><span>Close / blur</span></div><div><kbd>?</kbd><span>Open this help</span></div>
+        <div><kbd>↑</kbd>/<kbd>↓</kbd><span>Move watchlist</span></div>
+        <div><kbd>Ctrl</kbd> + <kbd>Enter</kbd><span>Place selected order</span></div>
+        <div><kbd>B</kbd><span>Select Buy</span></div>
+        <div><kbd>S</kbd><span>Select Sell</span></div>
+        <div><kbd>Alt</kbd> + <kbd>B</kbd><span>Preset Buy</span></div>
+        <div><kbd>Alt</kbd> + <kbd>S</kbd><span>Preset Sell</span></div>
+        <div><kbd>Alt</kbd> + <kbd>↑</kbd><span>Increase lots</span></div>
+        <div><kbd>Alt</kbd> + <kbd>↓</kbd><span>Decrease lots</span></div>
+        <div><kbd>1</kbd>-<kbd>5</kbd><span>Change timeframe</span></div>
+        <div><kbd>X</kbd><span>Square off selected</span></div>
+        <div><kbd>Shift</kbd> + <kbd>X</kbd><span>Exit all positions</span></div>
+        <div><kbd>R</kbd><span>Reset chart</span></div>
+        <div><kbd>F</kbd><span>Fullscreen chart</span></div>
+        <div><kbd>I</kbd><span>Toggle SMA</span></div>
+        <div><kbd>O</kbd><span>Toggle order markers</span></div>
+        <div><kbd>Esc</kbd><span>Close / blur</span></div>
+        <div><kbd>Alt</kbd> + <kbd>D</kbd><span>Compact layout</span></div>
+        <div><kbd>?</kbd><span>Open this help</span></div>
+      </div>
+    </div>
+  </div>
+  <div id="presetModal" class="modalOverlay hidden">
+    <div class="modalCard presetCard">
+      <div class="modalHeader">
+        <div>
+          <h3>Preset Order Settings</h3>
+          <p>Used by <kbd>Alt</kbd> + <kbd>B</kbd> and <kbd>Alt</kbd> + <kbd>S</kbd></p>
+        </div>
+
+        <button class="iconBtn" id="closePresetModal" type="button">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="presetBody">
+        <label class="presetRule">
+          <div>
+            <strong>Budget cap</strong>
+            <span>Maximum trade value allowed for preset orders.</span>
+          </div>
+          <input type="checkbox" id="presetBudgetEnabled">
+        </label>
+
+        <label class="presetField">
+          <span>Budget amount</span>
+          <input type="number" id="presetBudgetAmount" min="0" step="100" placeholder="Example: 25000">
+        </label>
+
+        <label class="presetRule">
+          <div>
+            <strong>ATR risk control</strong>
+            <span>Calculate stop-loss using ATR and size quantity by max risk.</span>
+          </div>
+          <input type="checkbox" id="presetRiskEnabled">
+        </label>
+
+        <div class="presetGrid">
+          <label class="presetField">
+            <span>Risk amount</span>
+            <input type="number" id="presetRiskAmount" min="0" step="50" placeholder="Example: 500">
+          </label>
+
+          <label class="presetField">
+            <span>ATR period</span>
+            <input type="number" id="presetAtrPeriod" min="2" step="1" value="14">
+          </label>
+
+          <label class="presetField">
+            <span>ATR multiplier</span>
+            <input type="number" id="presetAtrMultiplier" min="0.1" step="0.1" value="1.5">
+          </label>
+        </div>
+
+        <label class="presetRule">
+          <div>
+            <strong>Target by R:R</strong>
+            <span>Place target based on risk-reward ratio from ATR stop distance.</span>
+          </div>
+          <input type="checkbox" id="presetTargetEnabled">
+        </label>
+
+        <label class="presetField">
+          <span>Risk-reward ratio</span>
+          <input type="number" id="presetRiskRewardRatio" min="0.1" step="0.1" value="2">
+        </label>
+
+        <div class="presetDivider"></div>
+
+        <label class="presetRule">
+          <div>
+            <strong>Place stop-loss order</strong>
+            <span>After entry order fills, place calculated stop-loss.</span>
+          </div>
+          <input type="checkbox" id="presetPlaceStopLoss" checked>
+        </label>
+
+        <label class="presetRule">
+          <div>
+            <strong>Place target order</strong>
+            <span>After entry order fills, place calculated target order.</span>
+          </div>
+          <input type="checkbox" id="presetPlaceTarget" checked>
+        </label>
+
+        <label class="presetRule">
+          <div>
+            <strong>Confirm before sending</strong>
+            <span>Recommended for shortcut-based preset orders.</span>
+          </div>
+          <input type="checkbox" id="presetConfirm" checked>
+        </label>
+
+        <div id="presetValidation" class="presetValidation"></div>
+      </div>
+
+      <div class="modalActions">
+        <button class="softBtn" id="resetPresetSettings" type="button">Reset</button>
+        <button class="primaryBtn" id="savePresetSettings" type="button">Save Preset</button>
       </div>
     </div>
   </div>
   <div id="toastContainer"></div>
   <script src="dashboard.js"></script>
 </body>
+
 </html>

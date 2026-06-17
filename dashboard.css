@@ -41,6 +41,173 @@ body {
   overflow: hidden
 }
 
+body.chartFullscreen {
+  overflow: hidden;
+}
+
+body.chartFullscreen .chartPanel {
+  position: fixed;
+  inset: 10px;
+  z-index: 9000;
+  border-radius: 16px;
+  height: auto;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 120px rgba(0,0,0,.75);
+}
+
+body.chartFullscreen .chartPanel::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  background: rgba(0,0,0,.72);
+  backdrop-filter: blur(8px);
+}
+
+body.chartFullscreen #chart {
+  flex: 1;
+  min-height: 0;
+}
+
+body.chartFullscreen .symbolStrip {
+  height: 48px;
+}
+
+body.chartFullscreen .chartLegend {
+  top: 60px;
+}
+
+body.chartFullscreen .chartControls {
+  right: 86px;
+}
+
+#toggleFullscreenChart.active {
+  background: var(--brand-soft);
+  color: var(--brand-light);
+}
+
+body.compactMode .appShell {
+  grid-template-columns: 250px minmax(0, 1fr) 320px;
+  grid-template-rows: 60px minmax(0, 1fr) 190px;
+  gap: 8px;
+  padding: 8px;
+}
+
+body.compactMode .topBar {
+  padding: 0 12px;
+}
+
+body.compactMode .brandSub {
+  display: none;
+}
+
+body.compactMode .metricPill {
+  min-width: 105px;
+  padding: 6px 9px;
+}
+
+body.compactMode .panelHeader {
+  min-height: 48px;
+  padding: 8px 12px;
+}
+
+body.compactMode .panelHeader p {
+  display: none;
+}
+
+body.compactMode .symbolStrip {
+  height: 44px;
+  padding: 5px 10px;
+}
+
+body.compactMode .symbolMain span {
+  font-size: 14px;
+}
+
+body.compactMode .symbolMain small {
+  font-size: 9px;
+}
+
+body.compactMode .symbolStats div {
+  min-width: 76px;
+  padding: 4px 6px;
+}
+
+body.compactMode .symbolStats span {
+  font-size: 8px;
+}
+
+body.compactMode .symbolStats strong {
+  font-size: 11px;
+}
+
+body.compactMode .chartLegend {
+  top: 52px;
+  left: 10px;
+  padding: 7px 9px;
+  font-size: 11px;
+}
+
+body.compactMode .chartControls {
+  top: 52px;
+  right: 86px;
+}
+
+body.compactMode .orderTicket {
+  padding: 9px;
+  gap: 7px;
+}
+
+body.compactMode .ticketTop p {
+  display: none;
+}
+
+body.compactMode .ticketTop h2 {
+  font-size: 15px;
+}
+
+body.compactMode .orderBtn {
+  height: 34px;
+}
+
+body.compactMode .ticketGrid {
+  grid-template-columns: 90px 125px 1fr 1fr;
+  gap: 7px;
+}
+
+body.compactMode .ticketGrid input,
+body.compactMode .ticketGrid select {
+  height: 31px;
+}
+
+body.compactMode .estimateBox {
+  min-height: 50px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 5px;
+}
+
+body.compactMode .estItem {
+  height: 50px;
+  padding: 6px 7px;
+  font-size: 10px;
+}
+
+body.compactMode .estItem b {
+  font-size: 8px;
+}
+
+body.compactMode .watchlistrow td {
+  padding: 7px 6px;
+}
+
+body.compactMode .holdingRow,
+body.compactMode .orderRow {
+  padding: 8px;
+  margin-bottom: 6px;
+}
+
 button,
 input,
 select {
@@ -60,7 +227,7 @@ button:disabled {
   height: 100vh;
   padding: 10px;
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 330px;
+  grid-template-columns: 270px minmax(0, 1fr) 330px;
   grid-template-rows: 68px minmax(0, 1fr) 244px;
   grid-template-areas: "top top top" "watch chart orders" "positions ticket orders";
   gap: 10px
@@ -286,6 +453,111 @@ button:disabled {
   color: var(--text-muted)
 }
 
+.presetCard {
+  width: min(560px, calc(100vw - 28px));
+}
+
+.presetBody {
+  display: grid;
+  gap: 12px;
+}
+
+.presetRule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.presetRule strong {
+  display: block;
+  color: var(--text-main);
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+
+.presetRule span {
+  display: block;
+  color: var(--text-faint);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.presetRule input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  flex: 0 0 auto;
+}
+
+.presetField {
+  display: grid;
+  gap: 6px;
+}
+
+.presetField span {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.presetField input {
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--border-soft);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-main);
+  padding: 0 11px;
+  outline: none;
+}
+
+.presetField input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.presetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.presetDivider {
+  height: 1px;
+  background: var(--border-soft);
+  margin: 2px 0;
+}
+
+.presetValidation {
+  min-height: 20px;
+  color: var(--sell);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.presetValidation.success {
+  color: var(--buy);
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+@media (max-width: 640px) {
+  .presetGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .watchlistPanel {
   grid-area: watch;
   display: flex;
@@ -358,7 +630,7 @@ button:disabled {
 .watchlistsymbol.selected:before {
   content: "";
   display: inline-block;
-  width: 6px;
+  width: 3px;
   height: 18px;
   margin-right: 7px;
   vertical-align: -4px;
@@ -1122,7 +1394,8 @@ kbd {
   border-radius: 18px;
   background: var(--bg-panel);
   border: 1px solid var(--border-soft);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, .55)
+  box-shadow: 0 28px 90px rgba(0, 0, 0, .55);
+  scrollbar-width: none;
 }
 
 .stockModalCard {
@@ -1152,7 +1425,8 @@ kbd {
   margin: 12px 0 0;
   list-style: none;
   max-height: 420px;
-  overflow: auto
+  overflow: auto;
+  scrollbar-width: none;
 }
 
 .stockList li {
