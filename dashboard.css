@@ -680,32 +680,34 @@ button:disabled {
 }
 
 .price-up {
-  animation: flashUp 450ms ease
+  animation: flashUpSoft 500ms ease;
 }
 
 .price-down {
-  animation: flashDown 450ms ease
+  animation: flashDownSoft 500ms ease;
 }
 
-@keyframes flashUp {
+@keyframes flashUpSoft {
   0% {
-    background: rgba(0, 192, 118, .2);
-    color: #00e676
+    color: #8ff2c5;
+    text-shadow: 0 0 8px rgba(0, 192, 118, 0.28);
   }
 
   100% {
-    background: transparent
+    color: inherit;
+    text-shadow: none;
   }
 }
 
-@keyframes flashDown {
+@keyframes flashDownSoft {
   0% {
-    background: rgba(255, 77, 90, .2);
-    color: #ff6b78
+    color: #ff9aa3;
+    text-shadow: 0 0 8px rgba(255, 77, 90, 0.28);
   }
 
   100% {
-    background: transparent
+    color: inherit;
+    text-shadow: none;
   }
 }
 
@@ -780,6 +782,31 @@ button:disabled {
   z-index: 12;
   display: flex;
   gap: 8px
+}
+
+.chartZoomBadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 30;
+  transform: translate(-50%, -50%) scale(0.92);
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(9, 11, 15, 0.78);
+  border: 1px solid rgba(201, 169, 110, 0.36);
+  color: var(--brand-light);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  opacity: 0;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.chartZoomBadge.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .segmented {

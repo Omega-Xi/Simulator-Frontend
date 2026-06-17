@@ -1585,6 +1585,17 @@ function setupKeyboardShortcuts(){
       openShortcutHelp(); 
       return
     }
+    if (key === "+" || key === "=") {
+      e.preventDefault();
+      zoomChart("in");
+      return;
+    }
+
+    if (key === "-" || key === "_") {
+      e.preventDefault();
+      zoomChart("out");
+      return;
+    }
     if(ctrlOrCmd && e.key === "Enter"){
       e.preventDefault(); submitSelectedOrder(); 
       return
@@ -1764,6 +1775,59 @@ async function resetChartView(){
   plotFilledOrders();
   plotOrderLines();
   plotPositionLines()
+}
+function zoomChart(direction) {
+  if (!chart) return;
+
+  const timeScale = chart.timeScale();
+  const range = timeScale.getVisibleLogicalRange();
+
+  if (!range) {
+    showToast("Chart range unavailable", "info");
+    return;
+  }
+
+  const candles = getSortedCandles();
+
+  if (!candles.length) return;
+
+  const currentSize = range.to - range.from;
+  const center = (range.from + range.to) / 2;
+
+  const minBars = 8;
+  const maxBars = Math.max(candles.length + 10, 40);
+
+  const zoomFactor = direction === "in" ? 0.78 : 1.28;
+
+  let newSize = currentSize * zoomFactor;
+  newSize = Math.max(minBars, Math.min(maxBars, newSize));
+
+  const newRange = {
+    from: center - newSize / 2,
+    to: center + newSize / 2
+  };
+
+  timeScale.setVisibleLogicalRange(newRange);
+  flashChartZoom(direction);
+}
+
+function flashChartZoom(direction) {
+  if (!els.chart) return;
+
+  const badge = document.createElement("div");
+  badge.className = "chartZoomBadge";
+  badge.textContent = direction === "in" ? "Zoom +" : "Zoom −";
+
+  els.chart.appendChild(badge);
+
+  requestAnimationFrame(() => {
+    badge.classList.add("visible");
+  });
+
+  setTimeout(() => {
+    badge.classList.remove("visible");
+    setTimeout(() => badge.remove(), 180);
+  }, 420);
 }
 function updateSelectedSymbolSummary(){
   const title = document.getElementById("selectedSymbolTitle"), sub = document.getElementById("selectedSymbolSub"),
