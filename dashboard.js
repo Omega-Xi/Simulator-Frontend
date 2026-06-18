@@ -1,6 +1,6 @@
 const host = "localhost";
 const base_url = window.TELOTRADE_API_BASE_URL || (location.port === "7239"?location.origin: `https://${host}:7239`);
-const FLAT_ORDER_FEE = 20;
+const TRADE_CHARGE_CONFIG = window.TELOTRADE_CHARGES;
 const PRESET_STORAGE_KEY = "tt_presetOrderSettings";
 let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, wsReconnectTimer = null;
 let selectedsymbol = localStorage.getItem("tt_selectedSymbol") || "", currentLotSize = 0, selectedtimeframe = Number(localStorage.getItem("tt_timeframe") || 1),
@@ -801,6 +801,76 @@ function setOrderSide(side){
 function submitSelectedOrder(){
   placeOrder(selectedOrderSide)
 }
+function getOrderCashRequirement(action, quantity, price) {
+  const estimate = calculateOrderCost(action, quantity, price);
+
+  if (String(action).toUpperCase() === "BUY") {
+    return estimate.grossBuyCost;
+  }
+
+  // For opening/adding short, your backend only debits charges.
+  return estimate.totalCharges;
+}
+
+function getOrderExposureCost(action, quantity, price) {
+  const estimate = calculateOrderCost(action, quantity, price);
+
+  // For preset budget cap, treat budget as maximum trade exposure.
+  // This prevents a small budget from opening a huge short.
+  return estimate.turnover + estimate.totalCharges;
+}
+
+function calculatePositionExitPnl(positionType, quantity, averagePrice, ltp) {
+  const qty = Number(quantity || 0);
+  const avg = Number(averagePrice || 0);
+  const price = Number(ltp || 0);
+
+  if (qty <= 0 || avg <= 0 || price <= 0) return 0;
+
+  if (positionType === "LONG") {
+    const exitEstimate = calculateOrderCost("SELL", qty, price);
+    const netExitValue = exitEstimate.netSellValue;
+    const costBasis = avg * qty;
+
+    return netExitValue - costBasis;
+  }
+
+  if (positionType === "SHORT") {
+    const coverEstimate = calculateOrderCost("BUY", qty, price);
+    const coverCost = coverEstimate.grossBuyCost;
+    const entryValue = avg * qty;
+
+    return entryValue - coverCost;
+  }
+
+  return 0;
+}
+
+function calculateTradePnlFromEntryToExit(action, quantity, entryPrice, exitPrice) {
+  action = String(action || "").toUpperCase();
+
+  const qty = Number(quantity || 0);
+  const entry = Number(entryPrice || 0);
+  const exit = Number(exitPrice || 0);
+
+  if (qty <= 0 || entry <= 0 || exit <= 0) return 0;
+
+  if (action === "BUY") {
+    const entryEstimate = calculateOrderCost("BUY", qty, entry);
+    const exitEstimate = calculateOrderCost("SELL", qty, exit);
+
+    return exitEstimate.netSellValue - entryEstimate.grossBuyCost;
+  }
+
+  if (action === "SELL") {
+    const entryEstimate = calculateOrderCost("SELL", qty, entry);
+    const exitEstimate = calculateOrderCost("BUY", qty, exit);
+
+    return entryEstimate.netSellValue - exitEstimate.grossBuyCost;
+  }
+
+  return 0;
+}
 async function placeOrder(action){
   if(!selectedsymbol){
     showToast("Select a symbol before placing an order", "error");
@@ -853,13 +923,42 @@ async function placeOrder(action){
     showToast(err.message || "Order failed", "error")
   }
 }
-function getOrderEstimateValue(){
-  return (parseInt(els.orderLot.value, 10) || 0) * (currentLotSize || 0) * getEffectiveOrderPrice() + FLAT_ORDER_FEE
+function getOrderEstimateValue() {
+  const lots = parseInt(els.orderLot.value, 10) || 0;
+  const quantity = lots * (currentLotSize || 0);
+  const price = getEffectiveOrderPrice();
+
+  const estimate = calculateOrderCost(selectedOrderSide, quantity, price);
+
+  if (selectedOrderSide === "BUY") {
+    return estimate.grossBuyCost;
+  }
+
+  return estimate.totalCharges;
 }
-function getEffectiveOrderPrice(){
+function getEffectiveOrderPrice() {
   const type = els.orderType.value;
-  if(type === "market" || type === "stoploss")return Number(currentLTP || allLTP[selectedsymbol] || 0);
-  return parseFloat(els.limitPrice.value) || 0
+  const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
+  const limit = parseFloat(els.limitPrice.value) || 0;
+  const trigger = parseFloat(els.triggerPrice.value) || 0;
+
+  if (type === "market") {
+    return ltp;
+  }
+
+  if (type === "limit") {
+    return limit || ltp;
+  }
+
+  if (type === "stoploss") {
+    return trigger || ltp;
+  }
+
+  if (type === "stoplimit") {
+    return limit || trigger || ltp;
+  }
+
+  return ltp;
 }
 function clearOrderForm(resetSide = false){
   els.orderLot.value = "1";
@@ -908,15 +1007,67 @@ function updateEstimatedAmount(tick){
     els.estimateBox.innerHTML = '<div class="emptyMini">Enter quantity and price</div>';
     return
   }
-  const value = qty * price, required = value + FLAT_ORDER_FEE, after = totalCashMargin - required, enough = after >= 0,
-  active = getActiveHoldings();
+ const estimate = calculateOrderCost(selectedOrderSide, qty, price);
+const value = estimate.turnover;
+const charges = estimate.totalCharges;
+
+const active = getActiveHoldings();
+
+let cashImpact = 0;
+let cashLabel = "Required";
+
+if (selectedOrderSide === "BUY") {
+  if (active && active.POSITIONTYPE === "SHORT") {
+    const entryValue = Number(active.AVERAGEPRICE || 0) * qty;
+    cashImpact = entryValue - estimate.grossBuyCost;
+    cashLabel = "Cash Impact";
+  } else {
+    cashImpact = -estimate.grossBuyCost;
+    cashLabel = "Required";
+  }
+} else {
+  if (active && active.POSITIONTYPE === "LONG") {
+    cashImpact = estimate.netSellValue;
+    cashLabel = "Net Credit";
+  } else {
+    cashImpact = -charges;
+    cashLabel = "Charges";
+  }
+}
+
+const after = totalCashMargin + cashImpact;
+const enough = after >= 0;
   let afterPosition = "";
   if(active){
     const q = Number(active.QUANTITY || 0);
     afterPosition = selectedOrderSide === "BUY"?(active.POSITIONTYPE === "SHORT"?`After: SHORT ${Math.max(0,q-qty)}`: `After: LONG ${q+qty}`): (active.POSITIONTYPE === "LONG"?`After: LONG ${Math.max(0,q-qty)}`: `After: SHORT ${q+qty}`)
   }
   else afterPosition = selectedOrderSide === "BUY"?`After: LONG ${qty}`: `After: SHORT ${qty}`;
-  els.estimateBox.innerHTML = `<span class="estItem brand"><b>Qty</b>${qty.toLocaleString("en-IN")}</span><span class="estItem"><b>Value</b>${formatMoney(value)}</span><span class="estItem"><b>Fee</b>${formatMoney(FLAT_ORDER_FEE)}</span><span class="estItem ${selectedOrderSide==="BUY"&&!enough?"danger":"ok"}"><b>Required</b>${formatMoney(required)}</span><span class="estItem ${selectedOrderSide==="BUY"&&!enough?"danger":"ok"}"><b>After Cash</b>${formatMoney(after)}</span><span class="estItem brand"><b>Position</b>${afterPosition}</span>`
+  els.estimateBox.innerHTML = `
+  <span class="estItem brand">
+    <b>Qty</b>${qty.toLocaleString("en-IN")}
+  </span>
+
+  <span class="estItem">
+    <b>Value</b>${formatMoney(value)}
+  </span>
+
+  <span class="estItem">
+    <b>Charges</b>${formatMoney(charges)}
+  </span>
+
+  <span class="estItem ${!enough ? "danger" : "ok"}">
+    <b>${cashLabel}</b>${formatMoney(Math.abs(cashImpact))}
+  </span>
+
+  <span class="estItem ${!enough ? "danger" : "ok"}">
+    <b>After Cash</b>${formatMoney(after)}
+  </span>
+
+  <span class="estItem brand">
+    <b>Position</b>${afterPosition}
+  </span>
+`;
 }
 function renderOrderBook(orders){
   const container = document.querySelector(".orderBookContainer");
@@ -1031,7 +1182,29 @@ function renderHoldings(holdings){
 }
 function updateHoldingsPnL(tick){
   document.querySelectorAll(".holdingRow.active").forEach(row => {
-    if(row.dataset.symbol !== tick.SYMBOL)return; const qty = Number(row.dataset.quantity) || 0, avg = Number(row.dataset.averagePrice) || 0, type = row.dataset.positionType; let pnl = 0; if(type === "LONG")pnl = (Number(tick.LTP) - avg) * qty; else if(type === "SHORT")pnl = (avg - Number(tick.LTP)) * qty; row.dataset.pnl = pnl; const el = row.querySelector(".pnl"); el.textContent = formatMoney(pnl); el.classList.toggle("positive", pnl >= 0); el.classList.toggle("negative", pnl < 0)
+    if(row.dataset.symbol !== tick.SYMBOL)
+      return; 
+    const qty = Number(row.dataset.quantity) || 0, avg = Number(row.dataset.averagePrice) || 0, type = row.dataset.positionType; 
+    let pnl = 0;
+
+    if (type === "LONG") {
+      const exitEstimate = calculateOrderCost("SELL", qty, Number(tick.LTP));
+      const netExitValue = exitEstimate.netSellValue;
+      const costBasis = avg * qty;
+
+      pnl = netExitValue - costBasis;
+    } else if (type === "SHORT") {
+      const coverEstimate = calculateOrderCost("BUY", qty, Number(tick.LTP));
+      const coverCost = coverEstimate.grossBuyCost;
+      const entryValue = avg * qty;
+
+      pnl = entryValue - coverCost;
+    }
+    row.dataset.pnl = pnl; 
+    const el = row.querySelector(".pnl");
+     el.textContent = formatMoney(pnl); 
+     el.classList.toggle("positive", pnl >= 0); 
+     el.classList.toggle("negative", pnl < 0)
   }
 );
   updateTotalPnL();
@@ -1175,7 +1348,15 @@ function plotPositionLines(){
   if(!h || !h.ISACTIVE)return;
   const ltp = allLTP[selectedsymbol] || currentLTP;
   if(!ltp)return;
-  const avg = Number(h.AVERAGEPRICE), qty = Number(h.QUANTITY), pnl = h.POSITIONTYPE === "LONG"?(ltp - avg) * qty: (avg - ltp) * qty;
+  const avg = Number(h.AVERAGEPRICE);
+  const qty = Number(h.QUANTITY);
+
+  const pnl = calculatePositionExitPnl(
+    h.POSITIONTYPE,
+    qty,
+    avg,
+    ltp
+  );
   avgPositionLines.push(candleSeries.createPriceLine({
     price: avg, color: "#c9a96e", lineWidth: 2, axisLabelVisible: true, title: `AVG ${qty}`
   }
@@ -1284,8 +1465,12 @@ function calculatePresetOrderPlan(action) {
       throw new Error("Budget amount is required.");
     }
 
-    const usableBudget = Math.max(0, budget - FLAT_ORDER_FEE);
-    const budgetQty = Math.floor(usableBudget / entryPrice);
+    const budgetQty = getMaxQuantityWithinBudget(
+      budget,
+      entryPrice,
+      action,
+      currentLotSize || 1
+    );
 
     candidates.push(budgetQty);
   }
@@ -1324,7 +1509,13 @@ function calculatePresetOrderPlan(action) {
       throw new Error("Calculated stop-loss price is invalid.");
     }
 
-    const riskQty = Math.floor(riskAmount / stopDistance);
+    const riskQty = getMaxQuantityWithinRisk(
+      riskAmount,
+      entryPrice,
+      stopLossPrice,
+      action,
+      currentLotSize || 1
+    );
 
     candidates.push(riskQty);
   }
@@ -1355,10 +1546,14 @@ function calculatePresetOrderPlan(action) {
     }
   }
 
-  if (action === "BUY") {
-    const maxCashQty = Math.floor(Math.max(0, totalCashMargin - FLAT_ORDER_FEE) / entryPrice);
-    candidates.push(maxCashQty);
-  }
+  const maxCashQty = getMaxQuantityWithinAvailableCash(
+    totalCashMargin,
+    entryPrice,
+    action,
+    currentLotSize || 1
+  );
+
+  candidates.push(maxCashQty);
 
   const rawFinalQty = Math.min(...candidates);
   const lotResult = floorQuantityToLot(rawFinalQty);
@@ -1367,19 +1562,54 @@ function calculatePresetOrderPlan(action) {
     throw new Error("Preset rules calculated less than one valid lot.");
   }
 
-  const tradeValue = lotResult.quantity * entryPrice;
-  const requiredCash = tradeValue + FLAT_ORDER_FEE;
-  const estimatedRisk = stopDistance ? lotResult.quantity * stopDistance : 0;
-  const estimatedReward = targetPrice
-    ? Math.abs(targetPrice - entryPrice) * lotResult.quantity
-    : 0;
+  const entryEstimate = calculateOrderCost(action, lotResult.quantity, entryPrice);
 
-  if (presetSettings.budgetEnabled && requiredCash > Number(presetSettings.budgetAmount)) {
-    throw new Error("Calculated order exceeds preset budget.");
+  const tradeValue = entryEstimate.turnover;
+  const requiredCash = getOrderCashRequirement(
+    action,
+    lotResult.quantity,
+    entryPrice
+  );
+
+  let estimatedRisk = 0;
+  let estimatedReward = 0;
+
+  if (stopLossPrice) {
+    const stopPnl = calculateTradePnlFromEntryToExit(
+      action,
+      lotResult.quantity,
+      entryPrice,
+      stopLossPrice
+    );
+
+    estimatedRisk = Math.abs(Math.min(0, stopPnl));
   }
 
-  if (action === "BUY" && requiredCash > totalCashMargin) {
-    throw new Error("Preset buy exceeds available cash.");
+  if (targetPrice) {
+    const targetPnl = calculateTradePnlFromEntryToExit(
+      action,
+      lotResult.quantity,
+      entryPrice,
+      targetPrice
+    );
+
+    estimatedReward = Math.max(0, targetPnl);
+  }
+
+  if (presetSettings.budgetEnabled) {
+    const exposureCost = getOrderExposureCost(
+      action,
+      lotResult.quantity,
+      entryPrice
+    );
+
+    if (exposureCost > Number(presetSettings.budgetAmount)) {
+      throw new Error("Calculated order exceeds preset budget.");
+    }
+  }
+
+  if (requiredCash > totalCashMargin) {
+    throw new Error("Preset order exceeds available cash.");
   }
 
   return {
@@ -1390,7 +1620,9 @@ function calculatePresetOrderPlan(action) {
     lots: lotResult.lots,
     tradeValue,
     requiredCash,
-    fee: FLAT_ORDER_FEE,
+
+    charges: entryEstimate.charges,
+    totalCharges: entryEstimate.totalCharges,
 
     atr,
     stopDistance,
@@ -1483,7 +1715,7 @@ function buildPresetConfirmMessage(plan) {
     `Lots: ${plan.lots}`,
     `Entry: ${formatMoney(plan.entryPrice)}`,
     `Trade value: ${formatMoney(plan.tradeValue)}`,
-    `Fee: ${formatMoney(plan.fee)}`,
+    `Charges: ${formatMoney(plan.totalCharges)}`,
     `Required: ${formatMoney(plan.requiredCash)}`
   ];
 
@@ -1585,17 +1817,6 @@ function setupKeyboardShortcuts(){
       openShortcutHelp(); 
       return
     }
-    if (key === "+" || key === "=") {
-      e.preventDefault();
-      zoomChart("in");
-      return;
-    }
-
-    if (key === "-" || key === "_") {
-      e.preventDefault();
-      zoomChart("out");
-      return;
-    }
     if(ctrlOrCmd && e.key === "Enter"){
       e.preventDefault(); submitSelectedOrder(); 
       return
@@ -1631,8 +1852,21 @@ function setupKeyboardShortcuts(){
       document.activeElement?.blur(); 
       return;
     }
-    if(isTyping)return; if(e.altKey && key === "d"){
-      e.preventDefault(); toggleCompactMode(); return
+    if(isTyping)return; 
+    if(e.altKey && key === "d"){
+      e.preventDefault(); 
+      toggleCompactMode(); 
+      return
+    }
+    if (key === "+" || key === "=") {
+      e.preventDefault();
+      zoomChart("in");
+      return;
+    }
+    if (key === "-" || key === "_") {
+      e.preventDefault();
+      zoomChart("out");
+      return;
     }
     if(key === "f"){
       e.preventDefault(); toggleChartFullscreen(); return
@@ -1842,13 +2076,18 @@ function updateSelectedSymbolSummary(){
     return
   }
   title.textContent = selectedsymbol;
-  sub.textContent = `Timeframe ${selectedtimeframe}m · Flat fee ₹${FLAT_ORDER_FEE}`;
+  sub.textContent = `Timeframe ${selectedtimeframe}m · Charges estimated`;
   const ltp = allLTP[selectedsymbol] || currentLTP;
   ltpEl.textContent = ltp?formatMoney(ltp): "₹--";
   const h = getActiveHoldings();
   if(h){
     posEl.textContent = `${h.POSITIONTYPE} ${h.QUANTITY}`;
-    const pnl = h.POSITIONTYPE === "LONG"?(ltp - Number(h.AVERAGEPRICE)) * Number(h.QUANTITY): (Number(h.AVERAGEPRICE) - ltp) * Number(h.QUANTITY);
+    const pnl = calculatePositionExitPnl(
+      h.POSITIONTYPE,
+      Number(h.QUANTITY),
+      Number(h.AVERAGEPRICE),
+      ltp
+    );
     pnlEl.textContent = ltp?formatMoney(pnl): "₹--";
     pnlEl.classList.toggle("positive", pnl >= 0);
     pnlEl.classList.toggle("negative", pnl < 0)
@@ -2102,4 +2341,103 @@ function resetPresetSettings() {
   savePresetSettingsToStorage();
   renderPresetSettingsToModal();
   showToast("Preset settings reset", "info");
+}
+function getMaxQuantityWithinBudget(budget, price, action, lotSize = 1) {
+  budget = Number(budget) || 0;
+  price = Number(price) || 0;
+  lotSize = Number(lotSize) || 1;
+
+  if (budget <= 0 || price <= 0) return 0;
+
+  let low = 0;
+  let high = Math.floor(budget / price);
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const roundedQty = Math.floor(mid / lotSize) * lotSize;
+
+    const exposureCost = getOrderExposureCost(action, roundedQty, price);
+
+    if (exposureCost <= budget) {
+      best = roundedQty;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+function getMaxQuantityWithinRisk(riskAmount, entryPrice, stopLossPrice, action, lotSize = 1) {
+  riskAmount = Number(riskAmount) || 0;
+  entryPrice = Number(entryPrice) || 0;
+  stopLossPrice = Number(stopLossPrice) || 0;
+  lotSize = Number(lotSize) || 1;
+
+  if (riskAmount <= 0 || entryPrice <= 0 || stopLossPrice <= 0) return 0;
+
+  const exitAction = action === "BUY" ? "SELL" : "BUY";
+
+  const stopDistance = Math.abs(entryPrice - stopLossPrice);
+
+  if (stopDistance <= 0) return 0;
+
+  let low = 0;
+  let high = Math.floor(riskAmount / stopDistance) + lotSize * 10;
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const roundedQty = Math.floor(mid / lotSize) * lotSize;
+
+    const entryEstimate = calculateOrderCost(action, roundedQty, entryPrice);
+    const exitEstimate = calculateOrderCost(exitAction, roundedQty, stopLossPrice);
+
+    const priceRisk = stopDistance * roundedQty;
+
+    const totalRisk =
+      priceRisk +
+      entryEstimate.totalCharges +
+      exitEstimate.totalCharges;
+
+    if (totalRisk <= riskAmount) {
+      best = roundedQty;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
+}
+function getMaxQuantityWithinAvailableCash(cash, price, action, lotSize = 1) {
+  cash = Number(cash) || 0;
+  price = Number(price) || 0;
+  lotSize = Number(lotSize) || 1;
+
+  if (cash <= 0 || price <= 0) return 0;
+
+  let low = 0;
+  let high = action === "BUY"
+    ? Math.floor(cash / price)
+    : Math.floor((cash * 1000) / price); // broad upper bound for shorts
+
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const roundedQty = Math.floor(mid / lotSize) * lotSize;
+
+    const requiredCash = getOrderCashRequirement(action, roundedQty, price);
+
+    if (requiredCash <= cash) {
+      best = roundedQty;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return best;
 }
