@@ -592,6 +592,97 @@ button:disabled {
   filter: brightness(1.12)
 }
 
+.chartStyleSelect {
+  height: 28px;
+  min-width: 92px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text-main);
+  font-size: 11px;
+  font-weight: 800;
+  outline: none;
+  padding: 0 8px;
+}
+
+.chartStyleSelect:focus {
+  box-shadow: 0 0 0 2px var(--brand-soft);
+}
+
+.chartStyleSelect option {
+  background: #11161d;
+  color: #f5f7fa;
+}
+
+.indicatorMenu {
+  position: absolute;
+  top: 76px;
+  right: 18px;
+  z-index: 90;
+  width: 280px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(9, 11, 15, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(16px);
+}
+
+.indicatorMenu.hidden {
+  display: none;
+}
+
+.indicatorMenuHeader {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.indicatorMenuHeader strong {
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.indicatorMenuHeader span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.indicatorToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.indicatorToggle:hover {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.indicatorToggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.indicatorToggle b {
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.indicatorToggle small {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.indicatorToggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+}
+
 .panelHeader {
   min-height: 62px;
   padding: 12px 14px;

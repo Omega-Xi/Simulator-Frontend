@@ -1,5 +1,5 @@
 const host = "localhost";
-const base_url = window.TELOTRADE_API_BASE_URL || (location.port === "7239"?location.origin: `https://${host}:7239`);
+const base_url = window.TELOTRADE_API_BASE_URL || (location.port === "7239" ? location.origin : `https://${host}:7239`);
 const TRADE_CHARGE_CONFIG = window.TELOTRADE_CHARGES;
 const PRESET_STORAGE_KEY = "tt_presetOrderSettings";
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
@@ -8,7 +8,20 @@ const PRICE_ALERT_STORAGE_KEY = "tt_priceAlerts";
 const PRICE_ALERT_COOLDOWN_MS = 20000;
 const ALERT_SOUND_VOLUME = 0.85;
 const ORDER_LINE_DRAG_TOLERANCE_PX = 9;
+const CHART_STYLE_STORAGE_KEY = "tt_chartStyle";
+const INDICATOR_STORAGE_KEY = "tt_indicatorSettings";
 
+let activeChartStyle = localStorage.getItem(CHART_STYLE_STORAGE_KEY) || "candles";
+let rawCandleData = [];
+
+let indicatorSettings = {
+  ema9: true,
+  ema21: true,
+  ema50: false,
+  vwap: true,
+  bollinger: false
+};
+let indicatorSeries = {};
 let activeOrderLineDrag = null;
 let orderLineDragBound = false;
 let chartOrderMode = false;
@@ -22,9 +35,9 @@ let chartAlertMode = false;
 let accessRefreshTimer = null;
 let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, wsReconnectTimer = null;
 let selectedsymbol = localStorage.getItem("tt_selectedSymbol") || "", currentLotSize = 0, selectedtimeframe = Number(localStorage.getItem("tt_timeframe") || 1),
-candleBuckets = {}, smaVisible = JSON.parse(localStorage.getItem("tt_smaVisible") ?? "true"), filledOrderVisible = JSON.parse(localStorage.getItem("tt_filledOrdersVisible") ?? "false"),
-crosshairActive = false, allOrders = [], pendingLines = [], triggerLines = [], avgPositionLines = [],
-pnlPositionLines = [], allHoldings = [], currentOrderId = "", totalCashMargin = 0, selectedOrderSide = "BUY";
+  candleBuckets = {}, smaVisible = JSON.parse(localStorage.getItem("tt_smaVisible") ?? "true"), filledOrderVisible = JSON.parse(localStorage.getItem("tt_filledOrdersVisible") ?? "false"),
+  crosshairActive = false, allOrders = [], pendingLines = [], triggerLines = [], avgPositionLines = [],
+  pnlPositionLines = [], allHoldings = [], currentOrderId = "", totalCashMargin = 0, selectedOrderSide = "BUY";
 const allLTP = {}, allLTPPrevious = {}, watchlistStorageKey = "tt_watchlist", orderFilterState = {
   status: "all", search: "", sortBy: "time"
 };
@@ -47,16 +60,17 @@ let presetSettings = {
   confirmBeforeSend: true
 };
 const els = {};
-document.addEventListener("DOMContentLoaded", async() => {
+document.addEventListener("DOMContentLoaded", async () => {
   cacheDom();
   loadPresetSettings();
   loadPriceAlerts();
+  loadIndicatorSettings();
   setupAlertAudioUnlock();
-  if(!token){
-    try{
+  if (!token) {
+    try {
       token = await refreshAccessToken()
     }
-    catch{
+    catch {
       location.href = "signin.html"; return
     }
   }
@@ -70,17 +84,19 @@ document.addEventListener("DOMContentLoaded", async() => {
   } else {
     scheduleAccessTokenRefresh(token);
   }
-  setupChart(); 
-  setupEventHandlers(); 
-  setupKeyboardShortcuts(); 
-  restoreUiPreferences(); 
-  setCompactMode(compactMode, false); 
-  setOrderSide("BUY"); 
-  updateMarketStatus(); 
-  setInterval(updateMarketStatus, 3e4); 
-  await loadUserData(); 
-  await fetchOrderBook(); 
-  restoreWatchlist(); 
+  setupChart();
+  setupEventHandlers();
+  syncChartStyleInput();
+  syncIndicatorInputs();
+  setupKeyboardShortcuts();
+  restoreUiPreferences();
+  setCompactMode(compactMode, false);
+  setOrderSide("BUY");
+  updateMarketStatus();
+  setInterval(updateMarketStatus, 3e4);
+  await loadUserData();
+  await fetchOrderBook();
+  restoreWatchlist();
   connectWebSocket();
 }
 );
@@ -88,33 +104,36 @@ window.addEventListener("resize", () => {
   resizeChartToContainer(true)
 }
 );
-function cacheDom(){
-  ["watchlistTable", 
-    "watchlistBody", 
-    "watchlistEmpty", 
-    "chart", 
-    "buyBtn", 
-    "sellBtn", 
-    "orderLot", 
-    "orderType", 
-    "limitPrice", 
-    "triggerPrice", 
-    "lotInfo", 
-    "estimateBox", 
-    "ticketSymbol", 
-    "logoutBtn", 
-    "addToWatchlistBtn", 
-    "stockModal", 
-    "closeStockModal", 
-    "stockList", 
-    "stockSearch", 
-    "shortcutModal", 
-    "shortcutHelpBtn", 
-    "closeShortcutModal", 
-    "sortBy", 
-    "orderSearch", 
-    "orderTabs", 
-    "submitOrderBtn", 
+function cacheDom() {
+  ["watchlistTable",
+    "watchlistBody",
+    "watchlistEmpty",
+    "chart",
+    "buyBtn",
+    "sellBtn",
+    "orderLot",
+    "orderType",
+    "limitPrice",
+    "triggerPrice",
+    "lotInfo",
+    "estimateBox",
+    "ticketSymbol",
+    "logoutBtn",
+    "addToWatchlistBtn",
+    "stockModal",
+    "closeStockModal",
+    "stockList",
+    "stockSearch",
+    "shortcutModal",
+    "shortcutHelpBtn",
+    "closeShortcutModal",
+    "sortBy",
+    "orderSearch",
+    "orderTabs",
+    "submitOrderBtn",
+    "chartStyleSelect",
+    "indicatorMenuBtn",
+    "indicatorMenu",
     "toggleFullscreenChart",
     "toggleChartAlertMode",
     "toggleChartOrderMode",
@@ -138,63 +157,93 @@ function cacheDom(){
   tooltip = document.getElementById("chartTooltip");
   legend = document.getElementById("chartLegend")
 }
-function setupEventHandlers(){
+function setupEventHandlers() {
   els.buyBtn.onclick = () => setOrderSide("BUY");
   els.sellBtn.onclick = () => setOrderSide("SELL");
   els.submitOrderBtn.onclick = () => submitSelectedOrder();
-  if(els.toggleFullscreenChart)els.toggleFullscreenChart.onclick = toggleChartFullscreen;
-  if(els.presetSettingsBtn)els.presetSettingsBtn.onclick = openPresetModal;
-  if(els.closePresetModal)els.closePresetModal.onclick = closePresetModal;
-  if(els.savePresetSettings)els.savePresetSettings.onclick = savePresetSettingsFromModal;
-  if(els.resetPresetSettings)els.resetPresetSettings.onclick = resetPresetSettings;
-  if (els.toggleChartAlertMode)els.toggleChartAlertMode.onclick = toggleChartAlertMode;
-  if (els.toggleChartOrderMode)els.toggleChartOrderMode.onclick = toggleChartOrderMode;
+  if (els.toggleFullscreenChart) els.toggleFullscreenChart.onclick = toggleChartFullscreen;
+  if (els.presetSettingsBtn) els.presetSettingsBtn.onclick = openPresetModal;
+  if (els.closePresetModal) els.closePresetModal.onclick = closePresetModal;
+  if (els.savePresetSettings) els.savePresetSettings.onclick = savePresetSettingsFromModal;
+  if (els.resetPresetSettings) els.resetPresetSettings.onclick = resetPresetSettings;
+  if (els.toggleChartAlertMode) els.toggleChartAlertMode.onclick = toggleChartAlertMode;
+  if (els.toggleChartOrderMode) els.toggleChartOrderMode.onclick = toggleChartOrderMode;
+  if (els.chartStyleSelect) {
+    els.chartStyleSelect.onchange = () => {
+      changeChartStyle(els.chartStyleSelect.value);
+    };
+  }
+  if (els.indicatorMenuBtn) {
+    els.indicatorMenuBtn.onclick = () => {
+      els.indicatorMenu?.classList.toggle("hidden");
+    };
+  }
+  document.addEventListener("click", event => {
+    if (!els.indicatorMenu || !els.indicatorMenuBtn) return;
+
+    const clickedMenu = els.indicatorMenu.contains(event.target);
+    const clickedButton = els.indicatorMenuBtn.contains(event.target);
+
+    if (!clickedMenu && !clickedButton) {
+      els.indicatorMenu.classList.add("hidden");
+    }
+  });
+  document.querySelectorAll("[data-indicator]").forEach(input => {
+    input.addEventListener("change", () => {
+      const key = input.dataset.indicator;
+
+      indicatorSettings[key] = input.checked;
+
+      saveIndicatorSettings();
+      applyIndicators();
+    });
+  });
   [
     els.presetBudgetEnabled,
     els.presetRiskEnabled,
     els.presetTargetEnabled
   ].forEach(input => {
-    if(input){
-      input.addEventListener("change",updatePresetFieldStates);
+    if (input) {
+      input.addEventListener("change", updatePresetFieldStates);
     }
   });
-  if(els.presetModal){
+  if (els.presetModal) {
     els.presetModal.addEventListener("click", event => {
-      if(event.target === els.presetModal){
+      if (event.target === els.presetModal) {
         closePresetModal();
       }
     })
   }
   [
     els.orderLot,
-    els.limitPrice, 
+    els.limitPrice,
     els.triggerPrice
   ].forEach(x => x.addEventListener("input", () => updateEstimatedAmount({
     LTP: currentLTP
   }
-)));
+  )));
   els.orderType.onchange = () => {
     fillOrderForm(els.orderType.value);
     updateEstimatedAmount({
       LTP: currentLTP
     }
-)
+    )
   };
-  document.querySelectorAll("#timeframeSelector button").forEach(btn => btn.onclick = async() => {
-    selectedtimeframe = Number(btn.dataset.tf); localStorage.setItem("tt_timeframe", selectedtimeframe); document.querySelectorAll("#timeframeSelector button").forEach(b => b.classList.remove("active")); btn.classList.add("active"); clearBuckets(); if(selectedsymbol){
+  document.querySelectorAll("#timeframeSelector button").forEach(btn => btn.onclick = async () => {
+    selectedtimeframe = Number(btn.dataset.tf); localStorage.setItem("tt_timeframe", selectedtimeframe); document.querySelectorAll("#timeframeSelector button").forEach(b => b.classList.remove("active")); btn.classList.add("active"); clearBuckets(); if (selectedsymbol) {
       await getCandleData(); plotFilledOrders(); plotOrderLines(); plotPositionLines()
     }
   }
-);
+  );
   document.getElementById("toggleSMA").onclick = () => {
     smaVisible = !smaVisible;
     localStorage.setItem("tt_smaVisible", JSON.stringify(smaVisible));
-    if(smaVisible){
+    if (smaVisible) {
       const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time);
       smaSeries.setData(calculateSMA(candles, 3));
       document.getElementById("toggleSMA").classList.add("active")
     }
-    else{
+    else {
       smaSeries.setData([]);
       document.getElementById("toggleSMA").classList.remove("active")
     }
@@ -202,11 +251,11 @@ function setupEventHandlers(){
   document.getElementById("toggleFilledOrders").onclick = () => {
     filledOrderVisible = !filledOrderVisible;
     localStorage.setItem("tt_filledOrdersVisible", JSON.stringify(filledOrderVisible));
-    if(filledOrderVisible){
+    if (filledOrderVisible) {
       plotFilledOrders();
       document.getElementById("toggleFilledOrders").classList.add("active")
     }
-    else{
+    else {
       candleSeries.setMarkers([]);
       document.getElementById("toggleFilledOrders").classList.remove("active")
     }
@@ -217,11 +266,11 @@ function setupEventHandlers(){
   els.shortcutHelpBtn.onclick = openShortcutHelp;
   els.closeShortcutModal.onclick = closeShortcutHelp;
   els.shortcutModal.onclick = e => {
-    if(e.target === els.shortcutModal)closeShortcutHelp()
+    if (e.target === els.shortcutModal) closeShortcutHelp()
   };
   els.orderTabs.onclick = e => {
     const btn = e.target.closest("button[data-status]");
-    if(!btn)return;
+    if (!btn) return;
     orderFilterState.status = btn.dataset.status;
     document.querySelectorAll("#orderTabs button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
@@ -237,13 +286,13 @@ function setupEventHandlers(){
   };
   els.logoutBtn.onclick = logOut;
   document.getElementById("modifyDropdown").addEventListener("keydown", e => {
-    if(e.key === "Enter"){
+    if (e.key === "Enter") {
       e.preventDefault(); modifyOrder()
     }
   }
-)
+  )
 }
-function restoreUiPreferences(){
+function restoreUiPreferences() {
   document.querySelectorAll("#timeframeSelector button").forEach(btn => btn.classList.toggle("active", Number(btn.dataset.tf) === selectedtimeframe));
   document.getElementById("toggleSMA").classList.toggle("active", smaVisible);
   document.getElementById("toggleFilledOrders").classList.toggle("active", filledOrderVisible)
@@ -330,7 +379,7 @@ function reconnectWebSocketAfterTokenRefresh() {
 
     try {
       ws.close(1000, "Refreshing access token");
-    } catch {}
+    } catch { }
   }
 
   ws = null;
@@ -368,27 +417,27 @@ async function refreshAccessToken() {
 
   return refreshPromise;
 }
-async function apiFetch(url, options = {}, retry = true){
+async function apiFetch(url, options = {}, retry = true) {
   if (!token || isTokenExpiringSoon(token, 15_000)) {
     token = await refreshAccessToken();
   }
   const headers = {
-...(options.headers || {}), Authorization: `Bearer ${token}`
+    ...(options.headers || {}), Authorization: `Bearer ${token}`
   };
   const res = await fetch(url, {
-...options, headers, credentials: "include"
+    ...options, headers, credentials: "include"
   }
-);
-  if(res.status === 401 && retry){
-    try{
+  );
+  if (res.status === 401 && retry) {
+    try {
       const newToken = await refreshAccessToken();
       return apiFetch(url, {
-...options, headers: {
-...(options.headers || {}), Authorization: `Bearer ${newToken}`
+        ...options, headers: {
+          ...(options.headers || {}), Authorization: `Bearer ${newToken}`
         }
       }, false)
     }
-    catch{
+    catch {
       sessionStorage.removeItem("token");
       location.href = "signin.html";
       throw new Error("Session expired")
@@ -396,31 +445,31 @@ async function apiFetch(url, options = {}, retry = true){
   }
   return res
 }
-async function readResponseError(res){
+async function readResponseError(res) {
   const type = res.headers.get("content-type") || "";
-  try{
-    if(type.includes("application/json")){
+  try {
+    if (type.includes("application/json")) {
       const data = await res.json();
       return data.MESSAGE || data.message || data.ERROR || data.error || (data.ERRORS || []).join(", ") || JSON.stringify(data)
     }
     return await res.text()
   }
-  catch{
-    return`HTTP ${res.status} - ${res.statusText}`
+  catch {
+    return `HTTP ${res.status} - ${res.statusText}`
   }
 }
-function getWsUrl(){
+function getWsUrl() {
   const api = new URL(base_url);
-  const scheme = api.protocol === "https:"?"wss:": "ws:";
-  return`${scheme}//${api.host}/ws?token=${encodeURIComponent(token)}`
+  const scheme = api.protocol === "https:" ? "wss:" : "ws:";
+  return `${scheme}//${api.host}/ws?token=${encodeURIComponent(token)}`
 }
-async function connectWebSocket(){
+async function connectWebSocket() {
   clearTimeout(wsReconnectTimer);
-  if(!token || isTokenExpiringSoon(token, 15_000)){
-    try{
+  if (!token || isTokenExpiringSoon(token, 15_000)) {
+    try {
       token = await refreshAccessToken()
     }
-    catch{
+    catch {
       location.href = "signin.html";
       return
     }
@@ -436,70 +485,70 @@ async function connectWebSocket(){
   ws.onclose = () => {
     updateFeedStatus("offline");
     clearTimeout(wsReconnectTimer);
-    wsReconnectTimer = setTimeout(async() => {
-      try{
+    wsReconnectTimer = setTimeout(async () => {
+      try {
         await refreshAccessToken(); connectWebSocket()
       }
-      catch{
+      catch {
         location.href = "signin.html"
       }
     }, 1500)
   };
   ws.onerror = () => updateFeedStatus("offline")
 }
-function handleWebSocketMessage(event){
+function handleWebSocketMessage(event) {
   let data;
-  try{
+  try {
     data = JSON.parse(event.data)
   }
-  catch{
+  catch {
     return
   }
-  if(data.TYPE === "HeartBeat"){
+  if (data.TYPE === "HeartBeat") {
     pulseHeader();
     return
   }
-  if(data.TYPE === "system"){
+  if (data.TYPE === "system") {
     showToast(data.MESSAGE || "System message", "info");
     return
   }
-  if(data.TYPE === "trade_execution"){
+  if (data.TYPE === "trade_execution") {
     showToast(`${data.DATA.ACTION} ${data.DATA.STATUS}: ${data.DATA.SYMBOL}`, "success");
     loadUserData();
     fetchOrderBook();
     return
   }
-  if(data.TYPE === "order_trigger"){
-    showToast(`${data.DATA.Action||data.DATA.ACTION} triggered for ${data.DATA.SYMBOL}`, "info");
+  if (data.TYPE === "order_trigger") {
+    showToast(`${data.DATA.Action || data.DATA.ACTION} triggered for ${data.DATA.SYMBOL}`, "info");
     loadUserData();
     fetchOrderBook();
     return
   }
-  if(data.TYPE === "live_feed"){
+  if (data.TYPE === "live_feed") {
     const ticks = data.DATA || [];
     updateWatchlist(ticks);
     ticks.forEach(processTick);
     const selectedTick = ticks.find(t => t.SYMBOL === selectedsymbol);
-    if(selectedTick)updateEstimatedAmount(selectedTick);
-    if(allLTP[selectedsymbol] !== undefined){
+    if (selectedTick) updateEstimatedAmount(selectedTick);
+    if (allLTP[selectedsymbol] !== undefined) {
       currentLTP = allLTP[selectedsymbol];
       updateSelectedSymbolSummary()
     }
   }
 }
-function resubscribeWatchlist(){
+function resubscribeWatchlist() {
   const symbols = getStoredWatchlist();
-  if(symbols.length && ws?.readyState === WebSocket.OPEN)ws.send(JSON.stringify({
+  if (symbols.length && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
     action: "SUBSCRIBE", symbols
   }
-))
+  ))
 }
-function updateFeedStatus(state){
+function updateFeedStatus(state) {
   const chip = document.getElementById("feedStatus"), dot = chip.querySelector(".statusDot");
-  dot.className = `statusDot ${state==="live"?"live":state==="connecting"?"connecting":"offline"}`;
-  chip.querySelector("span:last-child").textContent = state === "live"?"Feed Live": state === "connecting"?"Connecting": "Feed Offline"
+  dot.className = `statusDot ${state === "live" ? "live" : state === "connecting" ? "connecting" : "offline"}`;
+  chip.querySelector("span:last-child").textContent = state === "live" ? "Feed Live" : state === "connecting" ? "Connecting" : "Feed Offline"
 }
-function pulseHeader(){
+function pulseHeader() {
   document.querySelector(".topBar")?.animate([{
     boxShadow: "0 0 0 rgba(201,169,110,0)"
   }, {
@@ -507,12 +556,12 @@ function pulseHeader(){
   }, {
     boxShadow: "0 0 0 rgba(201,169,110,0)"
   }
-], {
+  ], {
     duration: 1e3, easing: "ease-out"
   }
-)
+  )
 }
-function setupChart(){
+function setupChart() {
   chart = LightweightCharts.createChart(els.chart, {
     width: els.chart.clientWidth, height: els.chart.clientHeight, layout: {
       background: {
@@ -536,42 +585,39 @@ function setupChart(){
       }
     }
   }
-);
-  candleSeries = chart.addCandlestickSeries({
-    priceScaleId: "right", upColor: "#00c076", downColor: "#ff4d5a", wickUpColor: "#00c076", wickDownColor: "#ff4d5a", borderVisible: false
-  }
-);
+  );
+  candleSeries = createPriceSeries(activeChartStyle);
   volumeSeries = chart.addHistogramSeries({
     priceFormat: {
       type: "volume"
     }, priceScaleId: "volume"
   }
-);
+  );
   smaSeries = chart.addLineSeries({
     color: "#c9a96e", lineWidth: 1, crossHairMarkerVisible: false
   }
-);
+  );
   chart.priceScale("right").applyOptions({
     scaleMargins: {
-      top:.12, bottom:.28
+      top: .12, bottom: .28
     }
   }
-);
+  );
   chart.priceScale("volume").applyOptions({
     scaleMargins: {
-      top:.82, bottom: 0
+      top: .82, bottom: 0
     }
   }
-);
+  );
   chart.applyOptions({
     localization: {
       timeFormatter: t => new Date(t * 1e3).toLocaleString("en-IN", {
         day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"
       }
-)
+      )
     }
   }
-);
+  );
   smaTooltip = document.createElement("div");
   smaTooltip.className = "sma-tooltip";
   els.chart.appendChild(smaTooltip);
@@ -581,43 +627,231 @@ function setupChart(){
   setupDraggableOrderLines();
   els.chart.addEventListener("dblclick", resetChartView)
 }
-function onCrosshairMove(param){
-  if(!param.point || !param.time){
+function createPriceSeries(style) {
+  if (style === "bars") {
+    return chart.addBarSeries({
+      priceScaleId: "right",
+      upColor: "#00c076",
+      downColor: "#ff4d5a"
+    });
+  }
+
+  if (style === "line") {
+    return chart.addLineSeries({
+      priceScaleId: "right",
+      color: "#d9b87a",
+      lineWidth: 2,
+      crossHairMarkerVisible: true
+    });
+  }
+
+  if (style === "area") {
+    return chart.addAreaSeries({
+      priceScaleId: "right",
+      lineColor: "#d9b87a",
+      topColor: "rgba(201, 169, 110, 0.26)",
+      bottomColor: "rgba(201, 169, 110, 0.02)",
+      lineWidth: 2
+    });
+  }
+
+  if (style === "hollow") {
+    return chart.addCandlestickSeries({
+      priceScaleId: "right",
+      upColor: "rgba(0, 192, 118, 0.04)",
+      downColor: "#ff4d5a",
+      borderVisible: true,
+      borderUpColor: "#00c076",
+      borderDownColor: "#ff4d5a",
+      wickUpColor: "#00c076",
+      wickDownColor: "#ff4d5a"
+    });
+  }
+
+  if (style === "heikinashi") {
+    return chart.addCandlestickSeries({
+      priceScaleId: "right",
+      upColor: "#00c076",
+      downColor: "#ff4d5a",
+      wickUpColor: "#00c076",
+      wickDownColor: "#ff4d5a",
+      borderVisible: false
+    });
+  }
+
+  return chart.addCandlestickSeries({
+    priceScaleId: "right",
+    upColor: "#00c076",
+    downColor: "#ff4d5a",
+    wickUpColor: "#00c076",
+    wickDownColor: "#ff4d5a",
+    borderVisible: false
+  });
+}
+function syncChartStyleInput() {
+  if (els.chartStyleSelect) {
+    els.chartStyleSelect.value = activeChartStyle;
+  }
+}
+function isLineBasedChartStyle(style = activeChartStyle) {
+  return style === "line" || style === "area";
+}
+function getDisplayedCandles() {
+  if (activeChartStyle === "heikinashi") {
+    return calculateHeikinAshiCandles(rawCandleData);
+  }
+
+  return rawCandleData;
+}
+function toPriceSeriesPoint(candle) {
+  if (isLineBasedChartStyle()) {
+    return {
+      time: candle.time,
+      value: Number(candle.close)
+    };
+  }
+
+  return {
+    time: candle.time,
+    open: Number(candle.open),
+    high: Number(candle.high),
+    low: Number(candle.low),
+    close: Number(candle.close)
+  };
+}
+function getPriceSeriesData() {
+  return getDisplayedCandles().map(toPriceSeriesPoint);
+}
+function renderPriceSeries() {
+  if (!candleSeries) return;
+  candleSeries.setData(getPriceSeriesData());
+}
+function changeChartStyle(nextStyle) {
+  if (!nextStyle || nextStyle === activeChartStyle) return;
+  if (activeOrderLineDrag){
+    cancelOrderLineDrag();
+  }
+  activeChartStyle = nextStyle;
+  localStorage.setItem(CHART_STYLE_STORAGE_KEY, activeChartStyle);
+  const visibleRange = chart.timeScale().getVisibleLogicalRange();
+  clearChartOrderPreview();
+  try {
+    chart.removeSeries(candleSeries);
+  } catch { }
+
+  pendingLines = [];
+  triggerLines = [];
+  avgPositionLines = [];
+  pnlPositionLines = [];
+  priceAlertLines = [];
+  candleSeries = createPriceSeries(activeChartStyle);
+
+  renderPriceSeries();
+  applyIndicators();
+  plotFilledOrders();
+  plotOrderLines();
+  plotPositionLines();
+  syncPriceAlertLines();
+
+  if (visibleRange) {
+    chart.timeScale().setVisibleLogicalRange(visibleRange);
+  }
+
+  if (activeChartStyle === "heikinashi") {
+    showToast("Heikin Ashi uses synthetic candles. Orders still use real prices.", "info");
+  } else {
+    showToast(`Chart style changed to ${getChartStyleLabel(activeChartStyle)}`, "info");
+  }
+}
+function getChartStyleLabel(style) {
+  const labels = {
+    candles: "Candles",
+    hollow: "Hollow candles",
+    bars: "Bars",
+    line: "Line",
+    area: "Area",
+    heikinashi: "Heikin Ashi"
+  };
+
+  return labels[style] || style;
+}
+function calculateHeikinAshiCandles(candles) {
+  const result = [];
+
+  candles.forEach((candle, index) => {
+    const open = Number(candle.open);
+    const high = Number(candle.high);
+    const low = Number(candle.low);
+    const close = Number(candle.close);
+
+    const haClose = (open + high + low + close) / 4;
+
+    const previous = result[index - 1];
+
+    const haOpen = previous
+      ? (previous.open + previous.close) / 2
+      : (open + close) / 2;
+
+    const haHigh = Math.max(high, haOpen, haClose);
+    const haLow = Math.min(low, haOpen, haClose);
+
+    result.push({
+      time: candle.time,
+      open: haOpen,
+      high: haHigh,
+      low: haLow,
+      close: haClose,
+      volume: Number(candle.volume || 0)
+    });
+  });
+
+  return result;
+}
+function onCrosshairMove(param) {
+  if (!param.point || !param.time) {
     crosshairActive = false;
     tooltip.style.display = "none";
     smaTooltip.style.display = "none";
     return
   }
-  const candleData = param.seriesData.get(candleSeries), volumeData = param.seriesData.get(volumeSeries),
-  smaData = param.seriesData.get(smaSeries);
-  if(!candleData){
+  const candleData = getRawCandleByTime(param.time);
+  const volumeData = param.seriesData.get(volumeSeries);
+  const smaData = param.seriesData.get(smaSeries);
+  if (!candleData) {
     tooltip.style.display = "none";
     return
   }
   crosshairActive = true;
   const priceCoordinate = candleSeries.priceToCoordinate(candleData.high), timeCoordinate = chart.timeScale().timeToCoordinate(candleData.time);
-  if(priceCoordinate === null || timeCoordinate === null){
+  if (priceCoordinate === null || timeCoordinate === null) {
     tooltip.style.display = "none";
     return
   }
   const pct = ((candleData.close - candleData.open) / candleData.open) * 100;
   tooltip.style.display = "block";
-  tooltip.style.left = `${timeCoordinate+10}px`;
-  tooltip.style.top = `${priceCoordinate-32}px`;
-  tooltip.textContent = `${pct>0?"+":""}${pct.toFixed(2)}%`;
-  tooltip.style.color = pct >= 0?"#00c076": "#ff4d5a";
-  legend.innerHTML = `<div><strong>${selectedsymbol||"--"}</strong><br>Time: ${new Date(candleData.time*1e3).toLocaleTimeString("en-IN")}</div><div>O: ${fmtNum(candleData.open)} H: ${fmtNum(candleData.high)} L: ${fmtNum(candleData.low)} C: ${fmtNum(candleData.close)}</div><div>Vol: ${volumeData?Number(volumeData.value).toLocaleString("en-IN"):"-"}</div>`;
-  if(smaData){
+  tooltip.style.left = `${timeCoordinate + 10}px`;
+  tooltip.style.top = `${priceCoordinate - 32}px`;
+  tooltip.textContent = `${pct > 0 ? "+" : ""}${pct.toFixed(2)}%`;
+  tooltip.style.color = pct >= 0 ? "#00c076" : "#ff4d5a";
+  legend.innerHTML = `<div><strong>${selectedsymbol || "--"}</strong><br>Time: ${new Date(candleData.time * 1e3).toLocaleTimeString("en-IN")}</div><div>O: ${fmtNum(candleData.open)} H: ${fmtNum(candleData.high)} L: ${fmtNum(candleData.low)} C: ${fmtNum(candleData.close)}</div><div>Vol: ${volumeData ? Number(volumeData.value).toLocaleString("en-IN") : "-"}</div>`;
+  if (smaData) {
     const y = smaSeries.priceToCoordinate(smaData.value), x = chart.timeScale().timeToCoordinate(smaData.time);
-    if(y !== null && x !== null){
+    if (y !== null && x !== null) {
       smaTooltip.textContent = `SMA: ${fmtNum(smaData.value)}`;
-      smaTooltip.style.left = `${x+24}px`;
-      smaTooltip.style.top = `${y-16}px`;
+      smaTooltip.style.left = `${x + 24}px`;
+      smaTooltip.style.top = `${y - 16}px`;
       smaTooltip.style.display = "block"
     }
     else smaTooltip.style.display = "none"
   }
   else smaTooltip.style.display = "none"
+}
+function getRawCandleByTime(time) {
+  const numericTime = Number(time);
+
+  return rawCandleData.find(candle => Number(candle.time) === numericTime)
+    || candleBuckets[numericTime]
+    || null;
 }
 
 function loadPriceAlerts() {
@@ -636,6 +870,13 @@ function createPriceAlertId() {
 }
 function toggleChartAlertMode() {
   chartAlertMode = !chartAlertMode;
+
+  if (chartAlertMode && typeof chartOrderMode !== "undefined") {
+    chartOrderMode = false;
+    els.toggleChartOrderMode?.classList.remove("active");
+    els.chart?.classList.remove("orderMode");
+    clearChartOrderPreview();
+  }
 
   els.toggleChartAlertMode?.classList.toggle("active", chartAlertMode);
   els.chart?.classList.toggle("alertMode", chartAlertMode);
@@ -737,7 +978,7 @@ function syncPriceAlertLines() {
   priceAlertLines.forEach(line => {
     try {
       candleSeries.removePriceLine(line);
-    } catch {}
+    } catch { }
   });
 
   priceAlertLines = [];
@@ -1055,7 +1296,7 @@ function clearChartOrderPreview() {
   if (chartOrderPreviewLine) {
     try {
       candleSeries.removePriceLine(chartOrderPreviewLine);
-    } catch {}
+    } catch { }
 
     chartOrderPreviewLine = null;
   }
@@ -1114,33 +1355,143 @@ async function placeChartOrder(plan) {
     showToast(err.message || "Chart order failed", "error");
   }
 }
+function loadIndicatorSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INDICATOR_STORAGE_KEY));
 
-function getStoredWatchlist(){
-  try{
+    if (saved) {
+      indicatorSettings = {
+        ...indicatorSettings,
+        ...saved
+      };
+    }
+  } catch {
+    localStorage.removeItem(INDICATOR_STORAGE_KEY);
+  }
+}
+function saveIndicatorSettings() {
+  localStorage.setItem(INDICATOR_STORAGE_KEY, JSON.stringify(indicatorSettings));
+}
+function syncIndicatorInputs() {
+  document.querySelectorAll("[data-indicator]").forEach(input => {
+    input.checked = !!indicatorSettings[input.dataset.indicator];
+  });
+}
+function ensureIndicatorSeries(key, options) {
+  if (indicatorSeries[key]) {
+    return indicatorSeries[key];
+  }
+
+  indicatorSeries[key] = chart.addLineSeries({
+    priceScaleId: "right",
+    lineWidth: 1,
+    crossHairMarkerVisible: false,
+    ...options
+  });
+
+  return indicatorSeries[key];
+}
+function removeIndicatorSeries(key) {
+  if (!indicatorSeries[key]) return;
+
+  try {
+    chart.removeSeries(indicatorSeries[key]);
+  } catch {}
+
+  delete indicatorSeries[key];
+}
+function applyIndicators() {
+  const candles = rawCandleData;
+
+  if (!chart) return;
+  if (!candles.length) {
+    removeAllIndicatorSeries();
+    return;
+  }
+
+  if (indicatorSettings.ema9) {
+    ensureIndicatorSeries("ema9", { color: "#4db6ff" })
+      .setData(calculateEMA(candles, 9));
+  } else {
+    removeIndicatorSeries("ema9");
+  }
+
+  if (indicatorSettings.ema21) {
+    ensureIndicatorSeries("ema21", { color: "#d9b87a" })
+      .setData(calculateEMA(candles, 21));
+  } else {
+    removeIndicatorSeries("ema21");
+  }
+
+  if (indicatorSettings.ema50) {
+    ensureIndicatorSeries("ema50", { color: "#b56cff" })
+      .setData(calculateEMA(candles, 50));
+  } else {
+    removeIndicatorSeries("ema50");
+  }
+
+  if (indicatorSettings.vwap) {
+    ensureIndicatorSeries("vwap", {
+      color: "#f5c542",
+      lineStyle: LightweightCharts.LineStyle.Dashed
+    }).setData(calculateVWAP(candles));
+  } else {
+    removeIndicatorSeries("vwap");
+  }
+
+  if (indicatorSettings.bollinger) {
+    const bands = calculateBollingerBands(candles, 20, 2);
+
+    ensureIndicatorSeries("bbUpper", { color: "rgba(77, 182, 255, 0.85)" })
+      .setData(bands.upper);
+
+    ensureIndicatorSeries("bbMiddle", {
+      color: "rgba(149, 160, 179, 0.85)",
+      lineStyle: LightweightCharts.LineStyle.Dashed
+    }).setData(bands.middle);
+
+    ensureIndicatorSeries("bbLower", { color: "rgba(77, 182, 255, 0.85)" })
+      .setData(bands.lower);
+  } else {
+    removeIndicatorSeries("bbUpper");
+    removeIndicatorSeries("bbMiddle");
+    removeIndicatorSeries("bbLower");
+  }
+}
+function updateIndicatorsOnTick(candles) {
+  if (!candles.length) return;
+
+  // With only 100 candles, full recalculation is acceptable and simpler.
+  // Later, if your feed becomes very fast, throttle this to once every 250ms.
+  applyIndicators();
+}
+
+function getStoredWatchlist() {
+  try {
     return JSON.parse(localStorage.getItem(watchlistStorageKey) || "[]")
   }
-  catch{
-    return[]
+  catch {
+    return []
   }
 }
-function setStoredWatchlist(symbols){
+function setStoredWatchlist(symbols) {
   localStorage.setItem(watchlistStorageKey, JSON.stringify([...new Set(symbols)]))
 }
-function restoreWatchlist(){
+function restoreWatchlist() {
   const symbols = getStoredWatchlist();
   symbols.forEach(s => addToWatchlistRow(s, false));
   updateWatchlistEmptyState();
-  if(selectedsymbol && symbols.includes(selectedsymbol))selectSymbol(selectedsymbol);
-  else if(symbols[0])selectSymbol(symbols[0]);
+  if (selectedsymbol && symbols.includes(selectedsymbol)) selectSymbol(selectedsymbol);
+  else if (symbols[0]) selectSymbol(symbols[0]);
   resubscribeWatchlist()
 }
-async function openStockListModal(){
-  try{
+async function openStockListModal() {
+  try {
     const res = await apiFetch(`${base_url}/api/stocks`, {
       method: "GET"
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     const stocks = await res.json();
     latestStockList = stocks || [];
     renderStockList(latestStockList);
@@ -1148,15 +1499,15 @@ async function openStockListModal(){
     els.stockSearch.value = "";
     setTimeout(() => els.stockSearch.focus(), 60)
   }
-  catch(err){
+  catch (err) {
     console.error(err);
     showToast("Unable to load stocks", "error")
   }
 }
 let latestStockList = [];
-function renderStockList(stocks){
+function renderStockList(stocks) {
   els.stockList.innerHTML = "";
-  if(!stocks.length){
+  if (!stocks.length) {
     els.stockList.innerHTML = "<li>No stocks available</li>";
     return
   }
@@ -1165,31 +1516,31 @@ function renderStockList(stocks){
       addToWatchlist(stock); els.stockModal.classList.add("hidden")
     }; els.stockList.appendChild(item)
   }
-)
+  )
 }
-function filterStockList(){
+function filterStockList() {
   const q = els.stockSearch.value.trim().toLowerCase();
   renderStockList(latestStockList.filter(s => String(s).toLowerCase().includes(q)))
 }
-function addToWatchlist(symbol){
+function addToWatchlist(symbol) {
   const symbols = getStoredWatchlist();
-  if(symbols.includes(symbol)){
+  if (symbols.includes(symbol)) {
     showToast(`${symbol} already in watchlist`, "info");
     return
   }
   symbols.push(symbol);
   setStoredWatchlist(symbols);
   addToWatchlistRow(symbol, true);
-  if(ws?.readyState === WebSocket.OPEN)ws.send(JSON.stringify({
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
     action: "SUBSCRIBE", symbols: [symbol]
   }
-));
+  ));
   showToast(`${symbol} added to watchlist`, "success");
-  if(!selectedsymbol)selectSymbol(symbol);
+  if (!selectedsymbol) selectSymbol(symbol);
   updateWatchlistEmptyState()
 }
-function addToWatchlistRow(symbol){
-  if(document.querySelector(`.watchlistrow[data-symbol="${cssEscape(symbol)}"]`))return;
+function addToWatchlistRow(symbol) {
+  if (document.querySelector(`.watchlistrow[data-symbol="${cssEscape(symbol)}"]`)) return;
   const row = document.createElement("tr");
   row.className = "watchlistrow";
   row.draggable = true;
@@ -1204,25 +1555,25 @@ function addToWatchlistRow(symbol){
   setupWatchlistDrag();
   renderPositionBadges()
 }
-function removeFromWatchlist(symbol){
-  if(ws?.readyState === WebSocket.OPEN)ws.send(JSON.stringify({
+function removeFromWatchlist(symbol) {
+  if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({
     action: "UNSUBSCRIBE", symbols: [symbol]
   }
-));
+  ));
   document.querySelector(`.watchlistrow[data-symbol="${cssEscape(symbol)}"]`)?.remove();
   setStoredWatchlist(getStoredWatchlist().filter(s => s !== symbol));
-  if(selectedsymbol === symbol){
+  if (selectedsymbol === symbol) {
     selectedsymbol = "";
     localStorage.removeItem("tt_selectedSymbol");
     clearBuckets();
     updateSelectedSymbolSummary();
     const symbols = getStoredWatchlist();
-    if(symbols[0])selectSymbol(symbols[0])
+    if (symbols[0]) selectSymbol(symbols[0])
   }
   updateWatchlistEmptyState();
   showToast(`${symbol} removed from watchlist`, "info")
 }
-async function selectSymbol(symbol){
+async function selectSymbol(symbol) {
   selectedsymbol = symbol;
   localStorage.setItem("tt_selectedSymbol", symbol);
   highlightSelectedSymbol();
@@ -1237,162 +1588,171 @@ async function selectSymbol(symbol){
   syncPriceAlertLines();
   fillOrderForm(els.orderType.value)
 }
-function highlightSelectedSymbol(){
+function highlightSelectedSymbol() {
   document.querySelectorAll(".watchlistsymbol").forEach(el => {
     const row = el.closest(".watchlistrow"); el.classList.toggle("selected", row?.dataset.symbol === selectedsymbol)
   }
-)
+  )
 }
-function updateWatchlist(ticks){
+function updateWatchlist(ticks) {
   ticks.forEach(tick => {
-    const row = document.querySelector(`.watchlistrow[data-symbol="${cssEscape(tick.SYMBOL)}"]`); if(!row)return; const ltpCell = row.querySelector(".ltpCell"), volCell = row.querySelector(".volCell"), old = allLTPPrevious[tick.SYMBOL], next = Number(tick.LTP); if(old !== undefined && next !== old){
-      ltpCell.classList.remove("price-up", "price-down"); void ltpCell.offsetWidth; ltpCell.classList.add(next > old?"price-up": "price-down")
+    const row = document.querySelector(`.watchlistrow[data-symbol="${cssEscape(tick.SYMBOL)}"]`); if (!row) return; const ltpCell = row.querySelector(".ltpCell"), volCell = row.querySelector(".volCell"), old = allLTPPrevious[tick.SYMBOL], next = Number(tick.LTP); if (old !== undefined && next !== old) {
+      ltpCell.classList.remove("price-up", "price-down"); void ltpCell.offsetWidth; ltpCell.classList.add(next > old ? "price-up" : "price-down")
     }
-    allLTPPrevious[tick.SYMBOL] = next; ltpCell.textContent = fmtNum(next); volCell.textContent = tick.VOLATILITY != null?fmtNum(tick.VOLATILITY): "--"
+    allLTPPrevious[tick.SYMBOL] = next; ltpCell.textContent = fmtNum(next); volCell.textContent = tick.VOLATILITY != null ? fmtNum(tick.VOLATILITY) : "--"
   }
-)
+  )
 }
-function updateWatchlistEmptyState(){
-  els.watchlistEmpty.style.display = els.watchlistBody.querySelector(".watchlistrow")?"none": "grid"
+function updateWatchlistEmptyState() {
+  els.watchlistEmpty.style.display = els.watchlistBody.querySelector(".watchlistrow") ? "none" : "grid"
 }
 let dragBound = false;
-function setupWatchlistDrag(){
-  if(dragBound)return;
+function setupWatchlistDrag() {
+  if (dragBound) return;
   dragBound = true;
   let draggedRow = null;
   els.watchlistBody.addEventListener("dragstart", e => draggedRow = e.target.closest("tr"));
   els.watchlistBody.addEventListener("dragover", e => {
-    e.preventDefault(); const targetRow = e.target.closest("tr"); if(!targetRow || targetRow === draggedRow)return; const rect = targetRow.getBoundingClientRect(), half = rect.top + rect.height / 2; els.watchlistBody.insertBefore(draggedRow, e.clientY < half?targetRow: targetRow.nextSibling)
+    e.preventDefault(); const targetRow = e.target.closest("tr"); if (!targetRow || targetRow === draggedRow) return; const rect = targetRow.getBoundingClientRect(), half = rect.top + rect.height / 2; els.watchlistBody.insertBefore(draggedRow, e.clientY < half ? targetRow : targetRow.nextSibling)
   }
-);
+  );
   els.watchlistBody.addEventListener("dragend", () => {
     setStoredWatchlist([...els.watchlistBody.querySelectorAll(".watchlistrow")].map(r => r.dataset.symbol)); draggedRow = null
   }
-)
+  )
 }
-function selectWatchlistSymbol(index){
+function selectWatchlistSymbol(index) {
   const rows = [...document.querySelectorAll(".watchlistrow")];
-  if(!rows.length)return;
+  if (!rows.length) return;
   index = Math.max(0, Math.min(index, rows.length - 1));
   const symbol = rows[index].dataset.symbol;
-  if(symbol)selectSymbol(symbol)
+  if (symbol) selectSymbol(symbol)
 }
-function moveWatchlistSelection(direction){
+function moveWatchlistSelection(direction) {
   const rows = [...document.querySelectorAll(".watchlistrow")];
-  if(!rows.length)return;
+  if (!rows.length) return;
   const current = rows.findIndex(r => r.dataset.symbol === selectedsymbol);
-  selectWatchlistSymbol(current === - 1?0: current + direction)
+  selectWatchlistSymbol(current === - 1 ? 0 : current + direction)
 }
-async function getCandleData(){
-  if(!selectedsymbol)return;
-  try{
+async function getCandleData() {
+  if (!selectedsymbol) return;
+  try {
     const res = await apiFetch(`${base_url}/api/historicdata/${encodeURIComponent(selectedsymbol)}?timeFrameMinutes=${selectedtimeframe}`, {
       method: "GET"
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     const data = await res.json();
     const formatted = (data || []).map(c => ({
       time: Math.floor(c.TIMESTAMP / 1e3), open: Number(c.OPEN), high: Number(c.HIGH), low: Number(c.LOW), close: Number(c.CLOSE), volume: Number(c.VOLUME)
     }
-));
+    ));
+    rawCandleData = formatted;
     const vol = formatted.map(c => ({
-      time: c.time, value: c.volume, color: c.close >= c.open?"rgba(0,192,118,.28)": "rgba(255,77,90,.24)"
+      time: c.time, value: c.volume, color: c.close >= c.open ? "rgba(0,192,118,.28)" : "rgba(255,77,90,.24)"
     }
-));
-    candleSeries.setData(formatted);
+    ));
+    renderPriceSeries();
     volumeSeries.setData(vol);
-    smaSeries.setData(smaVisible?calculateSMA(formatted, 3): []);
+    smaSeries.setData(smaVisible ? calculateSMA(formatted, 3) : []);
+    applyIndicators();
     candleBuckets = {};
     formatted.forEach(c => candleBuckets[c.time] = {
-...c
+      ...c
     }
-);
-    if(formatted.length){
+    );
+    if (formatted.length) {
       const N = 30, last = formatted.length - 1, first = Math.max(0, last - (N - 1));
       chart.timeScale().setVisibleRange({
         from: formatted[first].time, to: formatted[last].time
       }
-);
+      );
       chart.timeScale().applyOptions({
         rightOffset: 5, timeVisible: true, secondsVisible: selectedtimeframe === 1
       }
-)
+      )
     }
   }
-  catch(err){
+  catch (err) {
     console.error(err);
     showToast(`Failed to fetch candle data for ${selectedsymbol}`, "error")
   }
 }
-function processTick(tick){
+function processTick(tick) {
   allLTP[tick.SYMBOL] = Number(tick.LTP);
   evaluatePriceAlerts(tick);
   updateHoldingsPnL(tick);
-  if(tick.SYMBOL === selectedsymbol){
+  if (tick.SYMBOL === selectedsymbol) {
     currentLTP = Number(tick.LTP);
     updateSelectedSymbolSummary();
     plotPositionLines()
   }
-  if(tick.SYMBOL !== selectedsymbol)return;
+  if (tick.SYMBOL !== selectedsymbol) return;
   const candleTime = getCandleTime(tick.LTT);
   let bucket = candleBuckets[candleTime];
-  if(!bucket){
+  if (!bucket) {
     bucket = {
       time: candleTime, open: Number(tick.LTP), high: Number(tick.LTP), low: Number(tick.LTP), close: Number(tick.LTP),
       volume: Number(tick.LTQ) || 0
     };
     candleBuckets[candleTime] = bucket
   }
-  else{
+  else {
     bucket.high = Math.max(bucket.high, Number(tick.LTP));
     bucket.low = Math.min(bucket.low, Number(tick.LTP));
     bucket.close = Number(tick.LTP);
     bucket.volume = (bucket.volume || 0) + (Number(tick.LTQ) || 0)
   }
-  candleSeries.update(bucket);
-  volumeSeries.update({
-    time: bucket.time, value: bucket.volume, color: bucket.close >= bucket.open?"rgba(0,192,118,.28)": "rgba(255,77,90,.24)"
+  rawCandleData = Object.values(candleBuckets).sort((a, b) => a.time - b.time);
+
+  if (activeChartStyle === "heikinashi") {
+    renderPriceSeries();
+  } else {
+    candleSeries.update(toPriceSeriesPoint(bucket));
   }
-);
+  volumeSeries.update({
+    time: bucket.time, value: bucket.volume, color: bucket.close >= bucket.open ? "rgba(0,192,118,.28)" : "rgba(255,77,90,.24)"
+  }
+  );
   const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time), smaData = calculateSMA(candles, 3),
-  latest = smaData[smaData.length - 1];
-  if(latest && latest.value !== undefined && smaVisible)smaSeries.update(latest);
-  if(!crosshairActive){
+    latest = smaData[smaData.length - 1];
+  if (latest && latest.value !== undefined && smaVisible) smaSeries.update(latest);
+  updateIndicatorsOnTick(rawCandleData);
+  if (!crosshairActive) {
     const l = candles[candles.length - 1];
-    if(l)legend.innerHTML = `<div><strong>${selectedsymbol}</strong><br>Time: ${new Date(l.time*1e3).toLocaleTimeString("en-IN")}</div><div>O: ${fmtNum(l.open)} H: ${fmtNum(l.high)} L: ${fmtNum(l.low)} C: ${fmtNum(l.close)}</div><div>Vol: ${l.volume?Number(l.volume).toLocaleString("en-IN"):"-"}</div>`
+    if (l) legend.innerHTML = `<div><strong>${selectedsymbol}</strong><br>Time: ${new Date(l.time * 1e3).toLocaleTimeString("en-IN")}</div><div>O: ${fmtNum(l.open)} H: ${fmtNum(l.high)} L: ${fmtNum(l.low)} C: ${fmtNum(l.close)}</div><div>Vol: ${l.volume ? Number(l.volume).toLocaleString("en-IN") : "-"}</div>`
   }
 }
-async function setLotsize(symbol){
-  try{
+async function setLotsize(symbol) {
+  try {
     const res = await apiFetch(`${base_url}/api/stocks/lot-size/${encodeURIComponent(symbol)}`, {
       method: "GET"
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     currentLotSize = parseInt(await res.text(), 10) || 1;
     els.lotInfo.textContent = ` (${currentLotSize}/lot)`;
     updateEstimatedAmount({
       LTP: currentLTP
     }
-);
+    );
     return currentLotSize
   }
-  catch{
+  catch {
     currentLotSize = 1;
     els.lotInfo.textContent = " (1/lot)";
     return 1
   }
 }
-async function loadUserData(){
-  try{
+async function loadUserData() {
+  try {
     const res = await apiFetch(`${base_url}/api/account/details`, {
       method: "GET", headers: {
         "Content-Type": "application/json"
       }
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     const userData = await res.json();
     allHoldings = Object.values(userData.HOLDINGS || {});
     totalCashMargin = Number(userData.CASHBALANCE || 0);
@@ -1407,18 +1767,18 @@ async function loadUserData(){
     updateSelectedSymbolSummary();
     updateExitAllButtonState()
   }
-  catch(err){
+  catch (err) {
     console.error(err);
     showToast("Failed to load account info", "error")
   }
 }
-async function fetchOrderBook(){
-  try{
+async function fetchOrderBook() {
+  try {
     const res = await apiFetch(`${base_url}/api/orderbook`, {
       method: "GET"
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     allOrders = await res.json();
     applyFilterAndSort();
     plotFilledOrders();
@@ -1426,12 +1786,12 @@ async function fetchOrderBook(){
     plotPositionLines();
     syncPriceAlertLines();
   }
-  catch(err){
+  catch (err) {
     console.error(err);
     showToast("Unable to load order book", "error")
   }
 }
-function setOrderSide(side){
+function setOrderSide(side) {
   selectedOrderSide = side;
   els.buyBtn.classList.toggle("active-side", side === "BUY");
   els.sellBtn.classList.toggle("active-side", side === "SELL");
@@ -1439,9 +1799,9 @@ function setOrderSide(side){
   updateEstimatedAmount({
     LTP: currentLTP
   }
-)
+  )
 }
-function submitSelectedOrder(){
+function submitSelectedOrder() {
   placeOrder(selectedOrderSide)
 }
 
@@ -1512,54 +1872,54 @@ function calculateTradePnlFromEntryToExit(action, quantity, entryPrice, exitPric
 
   return 0;
 }
-async function placeOrder(action){
-  if(!selectedsymbol){
+async function placeOrder(action) {
+  if (!selectedsymbol) {
     showToast("Select a symbol before placing an order", "error");
     return
   }
   const lots = parseInt(els.orderLot.value, 10);
-  if(isNaN(lots) || lots <= 0){
+  if (isNaN(lots) || lots <= 0) {
     showToast("Enter a valid lot count", "error");
     return
   }
   const quantity = lots * (currentLotSize || 1), orderType = els.orderType.value, limitPrice = parseFloat(els.limitPrice.value) || 0,
-  triggerPrice = parseFloat(els.triggerPrice.value) || 0;
-  if((orderType === "limit" || orderType === "stoplimit") && limitPrice <= 0){
+    triggerPrice = parseFloat(els.triggerPrice.value) || 0;
+  if ((orderType === "limit" || orderType === "stoplimit") && limitPrice <= 0) {
     showToast("Enter a valid limit price", "error");
     els.limitPrice.focus();
     return
   }
-  if((orderType === "stoploss" || orderType === "stoplimit") && triggerPrice <= 0){
+  if ((orderType === "stoploss" || orderType === "stoplimit") && triggerPrice <= 0) {
     showToast("Enter a valid trigger price", "error");
     els.triggerPrice.focus();
     return
   }
   const activeHolding = getActiveHoldings();
-  if(action === "SELL" && (!activeHolding || activeHolding.POSITIONTYPE !== "LONG")){
-    if(!confirm("This may open or add to a SHORT position.Continue?"))return
+  if (action === "SELL" && (!activeHolding || activeHolding.POSITIONTYPE !== "LONG")) {
+    if (!confirm("This may open or add to a SHORT position.Continue?")) return
   }
-  if(getOrderEstimateValue() > totalCashMargin *.8 && action === "BUY"){
-    if(!confirm("This order uses more than 80% of available cash.Continue?"))return
+  if (getOrderEstimateValue() > totalCashMargin * .8 && action === "BUY") {
+    if (!confirm("This order uses more than 80% of available cash.Continue?")) return
   }
   const payload = {
     ACTION: action, SYMBOL: selectedsymbol, QUANTITY: quantity, ORDERTYPE: orderType, PRICE: limitPrice,
     TRIGGERPRICE: triggerPrice, VALIDITY: "day", TAG: "", TIMESTAMP: Date.now()
   };
-  try{
+  try {
     const res = await apiFetch(`${base_url}/api/trade/place-order`, {
       method: "POST", headers: {
         "Content-Type": "application/json"
       }, body: JSON.stringify(payload)
     }
-);
+    );
     const data = await res.json().catch(() => ({}));
-    if(!res.ok)throw new Error(data.MESSAGE || data.message || (data.ERRORS || []).join(", ") || "Order failed");
-    showToast(`${action} order ${data.STATUS||"placed"}`, "success");
+    if (!res.ok) throw new Error(data.MESSAGE || data.message || (data.ERRORS || []).join(", ") || "Order failed");
+    showToast(`${action} order ${data.STATUS || "placed"}`, "success");
     await loadUserData();
     await fetchOrderBook();
     clearOrderForm(false)
   }
-  catch(err){
+  catch (err) {
     console.error("Error placing order:", err);
     showToast(err.message || "Order failed", "error")
   }
@@ -1601,7 +1961,7 @@ function getEffectiveOrderPrice() {
 
   return ltp;
 }
-function clearOrderForm(resetSide = false){
+function clearOrderForm(resetSide = false) {
   els.orderLot.value = "1";
   els.limitPrice.value = "";
   els.triggerPrice.value = "";
@@ -1610,80 +1970,80 @@ function clearOrderForm(resetSide = false){
   updateEstimatedAmount({
     LTP: currentLTP
   }
-);
-  if(resetSide)setOrderSide("BUY")
+  );
+  if (resetSide) setOrderSide("BUY")
 }
-function fillOrderForm(orderType){
-  if(allLTP[selectedsymbol] !== undefined)currentLTP = Number(allLTP[selectedsymbol]);
+function fillOrderForm(orderType) {
+  if (allLTP[selectedsymbol] !== undefined) currentLTP = Number(allLTP[selectedsymbol]);
   els.limitPrice.disabled = true;
   els.triggerPrice.disabled = true;
-  if(orderType === "limit"){
+  if (orderType === "limit") {
     els.limitPrice.disabled = false;
-    els.limitPrice.value = currentLTP?currentLTP.toFixed(2): "";
+    els.limitPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
     els.triggerPrice.value = ""
   }
-  else if(orderType === "stoploss"){
+  else if (orderType === "stoploss") {
     els.triggerPrice.disabled = false;
-    els.triggerPrice.value = currentLTP?currentLTP.toFixed(2): "";
+    els.triggerPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
     els.limitPrice.value = ""
   }
-  else if(orderType === "stoplimit"){
+  else if (orderType === "stoplimit") {
     els.limitPrice.disabled = false;
     els.triggerPrice.disabled = false;
-    els.limitPrice.value = currentLTP?currentLTP.toFixed(2): "";
-    els.triggerPrice.value = currentLTP?currentLTP.toFixed(2): ""
+    els.limitPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
+    els.triggerPrice.value = currentLTP ? currentLTP.toFixed(2) : ""
   }
-  else{
+  else {
     els.limitPrice.value = "";
     els.triggerPrice.value = ""
   }
 }
-function updateEstimatedAmount(tick){
-  if(!selectedsymbol){
+function updateEstimatedAmount(tick) {
+  if (!selectedsymbol) {
     els.estimateBox.innerHTML = '<div class="emptyMini">Select symbol and quantity to see estimate</div>';
     return
   }
   const lots = parseInt(els.orderLot.value, 10) || 0, qty = lots * (currentLotSize || 0), price = getEffectiveOrderPrice() || Number(tick?.LTP || currentLTP || 0);
-  if(qty <= 0 || price <= 0){
+  if (qty <= 0 || price <= 0) {
     els.estimateBox.innerHTML = '<div class="emptyMini">Enter quantity and price</div>';
     return
   }
- const estimate = calculateOrderCost(selectedOrderSide, qty, price);
-const value = estimate.turnover;
-const charges = estimate.totalCharges;
+  const estimate = calculateOrderCost(selectedOrderSide, qty, price);
+  const value = estimate.turnover;
+  const charges = estimate.totalCharges;
 
-const active = getActiveHoldings();
+  const active = getActiveHoldings();
 
-let cashImpact = 0;
-let cashLabel = "Required";
+  let cashImpact = 0;
+  let cashLabel = "Required";
 
-if (selectedOrderSide === "BUY") {
-  if (active && active.POSITIONTYPE === "SHORT") {
-    const entryValue = Number(active.AVERAGEPRICE || 0) * qty;
-    cashImpact = entryValue - estimate.grossBuyCost;
-    cashLabel = "Cash Impact";
+  if (selectedOrderSide === "BUY") {
+    if (active && active.POSITIONTYPE === "SHORT") {
+      const entryValue = Number(active.AVERAGEPRICE || 0) * qty;
+      cashImpact = entryValue - estimate.grossBuyCost;
+      cashLabel = "Cash Impact";
+    } else {
+      cashImpact = -estimate.grossBuyCost;
+      cashLabel = "Required";
+    }
   } else {
-    cashImpact = -estimate.grossBuyCost;
-    cashLabel = "Required";
+    if (active && active.POSITIONTYPE === "LONG") {
+      cashImpact = estimate.netSellValue;
+      cashLabel = "Net Credit";
+    } else {
+      cashImpact = -charges;
+      cashLabel = "Charges";
+    }
   }
-} else {
-  if (active && active.POSITIONTYPE === "LONG") {
-    cashImpact = estimate.netSellValue;
-    cashLabel = "Net Credit";
-  } else {
-    cashImpact = -charges;
-    cashLabel = "Charges";
-  }
-}
 
-const after = totalCashMargin + cashImpact;
-const enough = after >= 0;
+  const after = totalCashMargin + cashImpact;
+  const enough = after >= 0;
   let afterPosition = "";
-  if(active){
+  if (active) {
     const q = Number(active.QUANTITY || 0);
-    afterPosition = selectedOrderSide === "BUY"?(active.POSITIONTYPE === "SHORT"?`After: SHORT ${Math.max(0,q-qty)}`: `After: LONG ${q+qty}`): (active.POSITIONTYPE === "LONG"?`After: LONG ${Math.max(0,q-qty)}`: `After: SHORT ${q+qty}`)
+    afterPosition = selectedOrderSide === "BUY" ? (active.POSITIONTYPE === "SHORT" ? `After: SHORT ${Math.max(0, q - qty)}` : `After: LONG ${q + qty}`) : (active.POSITIONTYPE === "LONG" ? `After: LONG ${Math.max(0, q - qty)}` : `After: SHORT ${q + qty}`)
   }
-  else afterPosition = selectedOrderSide === "BUY"?`After: LONG ${qty}`: `After: SHORT ${qty}`;
+  else afterPosition = selectedOrderSide === "BUY" ? `After: LONG ${qty}` : `After: SHORT ${qty}`;
   els.estimateBox.innerHTML = `
   <span class="estItem brand">
     <b>Qty</b>${qty.toLocaleString("en-IN")}
@@ -1710,34 +2070,34 @@ const enough = after >= 0;
   </span>
 `;
 }
-function renderOrderBook(orders){
+function renderOrderBook(orders) {
   const container = document.querySelector(".orderBookContainer");
   container.innerHTML = "";
-  if(!orders.length){
+  if (!orders.length) {
     container.innerHTML = '<div class="emptyState"><i class="fa-regular fa-clipboard"></i><strong>No orders found</strong><span>Orders will appear here after placement</span></div>';
     return
   }
   orders.forEach(order => {
-    const row = document.createElement("div"); row.classList.add("orderRow", String(order.STATUS || "").toLowerCase()); let displayPrice = "--", triggerInfo = "--"; if(order.ORDERTYPE !== "MARKET"){
-      displayPrice = order.PRICE != null?fmtNum(order.PRICE): "--"; if(order.ORDERTYPE === "STOPLIMIT" || order.ORDERTYPE === "STOPLOSS")triggerInfo = order.TRIGGERPRICE != null?fmtNum(order.TRIGGERPRICE): "--"
+    const row = document.createElement("div"); row.classList.add("orderRow", String(order.STATUS || "").toLowerCase()); let displayPrice = "--", triggerInfo = "--"; if (order.ORDERTYPE !== "MARKET") {
+      displayPrice = order.PRICE != null ? fmtNum(order.PRICE) : "--"; if (order.ORDERTYPE === "STOPLIMIT" || order.ORDERTYPE === "STOPLOSS") triggerInfo = order.TRIGGERPRICE != null ? fmtNum(order.TRIGGERPRICE) : "--"
     }
-    const exec = order.EXECUTEDPRICE != null?fmtNum(order.EXECUTEDPRICE): "--", action = String(order.ACTION || "").toUpperCase(); row.innerHTML = `<div class="orderInfo"><span class="symbol">${order.SYMBOL}</span><span class="action ${action.toLowerCase()}">${action}</span><span>Qty: ${order.QUANTITY}</span><span>Price: ₹${displayPrice}</span><span>Trigger: ₹${triggerInfo}</span><span>Executed: ₹${exec}</span><span class="status">${order.STATUS}</span></div>`; const actions = document.createElement("div"); actions.className = "orderActions"; if(order.STATUS === "Pending" || order.STATUS === "TriggerPending"){
+    const exec = order.EXECUTEDPRICE != null ? fmtNum(order.EXECUTEDPRICE) : "--", action = String(order.ACTION || "").toUpperCase(); row.innerHTML = `<div class="orderInfo"><span class="symbol">${order.SYMBOL}</span><span class="action ${action.toLowerCase()}">${action}</span><span>Qty: ${order.QUANTITY}</span><span>Price: ₹${displayPrice}</span><span>Trigger: ₹${triggerInfo}</span><span>Executed: ₹${exec}</span><span class="status">${order.STATUS}</span></div>`; const actions = document.createElement("div"); actions.className = "orderActions"; if (order.STATUS === "Pending" || order.STATUS === "TriggerPending") {
       const m = document.createElement("button"); m.className = "modifyBtn"; m.textContent = "Modify"; m.onclick = () => openModifyDropdown(order); const c = document.createElement("button"); c.className = "cancelOrderBtn"; c.textContent = "Cancel"; c.onclick = () => cancelOrder(order.ORDERID); actions.append(m, c)
     }
     row.appendChild(actions); container.appendChild(row)
   }
-)
+  )
 }
-function applyFilterAndSort(){
+function applyFilterAndSort() {
   let filtered = [...allOrders];
-  if(orderFilterState.status !== "all")filtered = filtered.filter(o => String(o.STATUS || "").toLowerCase() === orderFilterState.status);
-  if(orderFilterState.search)filtered = filtered.filter(o => String(o.SYMBOL || "").toLowerCase().includes(orderFilterState.search) || String(o.ORDERID || "").toLowerCase().includes(orderFilterState.search));
-  switch(orderFilterState.sortBy){
-    case"symbol": filtered.sort((a, b) => String(a.SYMBOL).localeCompare(String(b.SYMBOL)));
-    break;
-    case"price": filtered.sort((a, b) => (a.PRICE ?? a.EXECUTEDPRICE ?? a.TRIGGERPRICE ?? 0) - (b.PRICE ?? b.EXECUTEDPRICE ?? b.TRIGGERPRICE ?? 0));
-    break;
-    case"status": {
+  if (orderFilterState.status !== "all") filtered = filtered.filter(o => String(o.STATUS || "").toLowerCase() === orderFilterState.status);
+  if (orderFilterState.search) filtered = filtered.filter(o => String(o.SYMBOL || "").toLowerCase().includes(orderFilterState.search) || String(o.ORDERID || "").toLowerCase().includes(orderFilterState.search));
+  switch (orderFilterState.sortBy) {
+    case "symbol": filtered.sort((a, b) => String(a.SYMBOL).localeCompare(String(b.SYMBOL)));
+      break;
+    case "price": filtered.sort((a, b) => (a.PRICE ?? a.EXECUTEDPRICE ?? a.TRIGGERPRICE ?? 0) - (b.PRICE ?? b.EXECUTEDPRICE ?? b.TRIGGERPRICE ?? 0));
+      break;
+    case "status": {
       const ranks = {
         Pending: 1, TriggerPending: 2, Filled: 3, Cancelled: 4, Rejected: 5
       };
@@ -1748,23 +2108,23 @@ function applyFilterAndSort(){
   }
   renderOrderBook(filtered)
 }
-async function cancelOrder(orderId){
-  if(!orderId)return;
-  try{
+async function cancelOrder(orderId) {
+  if (!orderId) return;
+  try {
     const res = await apiFetch(`${base_url}/api/trade/cancel-order/${encodeURIComponent(orderId)}`, {
       method: "DELETE"
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     const result = await res.json().catch(() => ({}));
     showToast(result.MESSAGE || "Order cancelled", "success");
     await fetchOrderBook()
   }
-  catch(err){
+  catch (err) {
     showToast(err.message || "Cancel failed", "error")
   }
 }
-function openModifyDropdown(order){
+function openModifyDropdown(order) {
   currentOrderId = order.ORDERID;
   document.getElementById("modifySymbol").textContent = `Modify — ${order.SYMBOL}`;
   document.getElementById("modifyQty").value = order.QUANTITY || "";
@@ -1776,7 +2136,7 @@ function openModifyDropdown(order){
     const q = document.getElementById("modifyQty"); q.focus(); q.select()
   }, 60)
 }
-function closeModifyDropdown(){
+function closeModifyDropdown() {
   currentOrderId = "";
   document.getElementById("modifyDropdown").classList.remove("visible")
 }
@@ -1826,52 +2186,52 @@ async function modifyOrderFromChartLine(item, newPrice) {
 
   await fetchOrderBook();
 }
-async function modifyOrder(){
+async function modifyOrder() {
   const payload = {
-    ORDERID: currentOrderId, QUANTITY: parseInt(document.getElementById("modifyQty").value, 10), PRICE: document.getElementById("modifyPrice").value?parseFloat(document.getElementById("modifyPrice").value): null,
-    TRIGGERPRICE: document.getElementById("modifyTrigger").value?parseFloat(document.getElementById("modifyTrigger").value): null,
+    ORDERID: currentOrderId, QUANTITY: parseInt(document.getElementById("modifyQty").value, 10), PRICE: document.getElementById("modifyPrice").value ? parseFloat(document.getElementById("modifyPrice").value) : null,
+    TRIGGERPRICE: document.getElementById("modifyTrigger").value ? parseFloat(document.getElementById("modifyTrigger").value) : null,
     VALIDITY: document.getElementById("modifyValidity").value || "day", TIMESTAMP: Date.now()
   };
-  try{
+  try {
     const res = await apiFetch(`${base_url}/api/trade/modify-order`, {
       method: "PUT", headers: {
         "Content-Type": "application/json"
       }, body: JSON.stringify(payload)
     }
-);
-    if(!res.ok)throw new Error(await readResponseError(res));
+    );
+    if (!res.ok) throw new Error(await readResponseError(res));
     const result = await res.json();
     showToast(result.MESSAGE || "Order modified", "success");
     closeModifyDropdown();
     await fetchOrderBook()
   }
-  catch(err){
+  catch (err) {
     showToast(err.message || "Modify failed", "error")
   }
 }
-function renderHoldings(holdings){
+function renderHoldings(holdings) {
   const panel = document.getElementById("holdingsPanel");
   panel.innerHTML = "";
   const values = Object.values(holdings || {}).sort((a, b) => Number(b.ISACTIVE) - Number(a.ISACTIVE));
-  if(!values.length){
+  if (!values.length) {
     panel.innerHTML = '<div class="emptyState"><i class="fa-solid fa-layer-group"></i><strong>No positions</strong><span>Open a long or short position to start tracking P&L</span></div>';
     return
   }
   values.forEach(h => {
-    const row = document.createElement("div"), type = String(h.POSITIONTYPE || "FLAT").toLowerCase(); row.className = `holdingRow ${h.ISACTIVE?"active":"closed"} ${type}`; row.dataset.symbol = h.SYMBOL; row.dataset.quantity = h.QUANTITY; row.dataset.averagePrice = h.AVERAGEPRICE; row.dataset.positionType = h.POSITIONTYPE; row.innerHTML = `<div class="holdingLeft"><div class="holdingHeader"><span class="symbol">${h.SYMBOL}</span><span class="statusDotMini"></span></div><div class="holdingDetails"><span>Qty: ${Number(h.QUANTITY).toLocaleString("en-IN")}</span><br><span>Avg: ${formatMoney(h.AVERAGEPRICE)}</span></div></div><div class="holdingRight"><div class="pnl">₹--</div>${h.ISACTIVE?` <button class = "squareOffBtn" onclick = "squareOff('${h.SYMBOL}','${h.QUANTITY}','${h.POSITIONTYPE}')"> Square Off </button> `:` <button class = "squareOffBtn" disabled> Square Off </button> `}</div>`; row.onclick = async() => {
+    const row = document.createElement("div"), type = String(h.POSITIONTYPE || "FLAT").toLowerCase(); row.className = `holdingRow ${h.ISACTIVE ? "active" : "closed"} ${type}`; row.dataset.symbol = h.SYMBOL; row.dataset.quantity = h.QUANTITY; row.dataset.averagePrice = h.AVERAGEPRICE; row.dataset.positionType = h.POSITIONTYPE; row.innerHTML = `<div class="holdingLeft"><div class="holdingHeader"><span class="symbol">${h.SYMBOL}</span><span class="statusDotMini"></span></div><div class="holdingDetails"><span>Qty: ${Number(h.QUANTITY).toLocaleString("en-IN")}</span><br><span>Avg: ${formatMoney(h.AVERAGEPRICE)}</span></div></div><div class="holdingRight"><div class="pnl">₹--</div>${h.ISACTIVE ? ` <button class = "squareOffBtn" onclick = "squareOff('${h.SYMBOL}','${h.QUANTITY}','${h.POSITIONTYPE}')"> Square Off </button> ` : ` <button class = "squareOffBtn" disabled> Square Off </button> `}</div>`; row.onclick = async () => {
       await selectSymbol(h.SYMBOL); const lots = Math.max(1, Math.round(Number(h.QUANTITY || 1) / (currentLotSize || 1))); els.orderLot.value = lots; updateEstimatedAmount({
         LTP: currentLTP
       }
-)
+      )
     }; panel.appendChild(row)
   }
-)
+  )
 }
-function updateHoldingsPnL(tick){
+function updateHoldingsPnL(tick) {
   document.querySelectorAll(".holdingRow.active").forEach(row => {
-    if(row.dataset.symbol !== tick.SYMBOL)
-      return; 
-    const qty = Number(row.dataset.quantity) || 0, avg = Number(row.dataset.averagePrice) || 0, type = row.dataset.positionType; 
+    if (row.dataset.symbol !== tick.SYMBOL)
+      return;
+    const qty = Number(row.dataset.quantity) || 0, avg = Number(row.dataset.averagePrice) || 0, type = row.dataset.positionType;
     let pnl = 0;
 
     if (type === "LONG") {
@@ -1887,17 +2247,17 @@ function updateHoldingsPnL(tick){
 
       pnl = entryValue - coverCost;
     }
-    row.dataset.pnl = pnl; 
+    row.dataset.pnl = pnl;
     const el = row.querySelector(".pnl");
-     el.textContent = formatMoney(pnl); 
-     el.classList.toggle("positive", pnl >= 0); 
-     el.classList.toggle("negative", pnl < 0)
+    el.textContent = formatMoney(pnl);
+    el.classList.toggle("positive", pnl >= 0);
+    el.classList.toggle("negative", pnl < 0)
   }
-);
+  );
   updateTotalPnL();
   updateSelectedSymbolSummary()
 }
-function updateTotalPnL(){
+function updateTotalPnL() {
   let total = 0;
   document.querySelectorAll(".holdingRow.active").forEach(row => total += Number(row.dataset.pnl || 0));
   const el = document.querySelector(".totalPnL");
@@ -1905,105 +2265,105 @@ function updateTotalPnL(){
   el.classList.toggle("positive", total >= 0);
   el.classList.toggle("negative", total < 0)
 }
-function getActiveHoldings(){
+function getActiveHoldings() {
   return allHoldings.find(h => h.SYMBOL === selectedsymbol && h.ISACTIVE)
 }
-async function squareOff(symbol, quantity, positionType){
-  const action = positionType === "LONG"?"SELL": positionType === "SHORT"?"BUY": "";
-  if(!action)return;
+async function squareOff(symbol, quantity, positionType) {
+  const action = positionType === "LONG" ? "SELL" : positionType === "SHORT" ? "BUY" : "";
+  if (!action) return;
   const payload = {
     ACTION: action, SYMBOL: symbol, QUANTITY: Number(quantity), ORDERTYPE: "MARKET", PRICE: 0, TRIGGERPRICE: 0,
     VALIDITY: "day", TAG: "SQUARE_OFF", TIMESTAMP: Date.now()
   };
-  try{
+  try {
     const res = await apiFetch(`${base_url}/api/trade/place-order`, {
       method: "POST", headers: {
         "Content-Type": "application/json"
       }, body: JSON.stringify(payload)
     }
-);
+    );
     const data = await res.json().catch(() => ({}));
-    if(!res.ok)throw new Error(data.MESSAGE || (data.ERRORS || []).join(", ") || "Square off failed");
-    showToast(`${symbol} square off ${data.STATUS||"sent"}`, "success");
+    if (!res.ok) throw new Error(data.MESSAGE || (data.ERRORS || []).join(", ") || "Square off failed");
+    showToast(`${symbol} square off ${data.STATUS || "sent"}`, "success");
     await loadUserData();
     await fetchOrderBook()
   }
-  catch(err){
+  catch (err) {
     showToast(err.message || "Square off failed", "error")
   }
 }
-function exitAll(){
+function exitAll() {
   const active = [...document.querySelectorAll(".holdingRow.active")];
-  if(!active.length){
+  if (!active.length) {
     showToast("No active positions", "info");
     return
   }
-  if(!confirm(`Exit all ${active.length} active positions?`))return;
+  if (!confirm(`Exit all ${active.length} active positions?`)) return;
   const btn = document.querySelector(".exitAllBtn");
   btn.disabled = true;
   Promise.all(active.map(row => squareOff(row.dataset.symbol, row.dataset.quantity, row.dataset.positionType))).finally(() => {
     btn.disabled = false; clearOrderForm()
   }
-)
+  )
 }
-function updateExitAllButtonState(){
+function updateExitAllButtonState() {
   const btn = document.querySelector(".exitAllBtn");
-  if(btn)btn.disabled = document.querySelectorAll(".holdingRow.active").length === 0
+  if (btn) btn.disabled = document.querySelectorAll(".holdingRow.active").length === 0
 }
-function renderPositionBadges(){
+function renderPositionBadges() {
   document.querySelectorAll(".positionSlot").forEach(el => el.innerHTML = "");
   allHoldings.filter(h => h.ISACTIVE).forEach(h => {
-    const row = document.querySelector(`.watchlistrow[data-symbol="${cssEscape(h.SYMBOL)}"]`), slot = row?.querySelector(".positionSlot"); if(slot){
+    const row = document.querySelector(`.watchlistrow[data-symbol="${cssEscape(h.SYMBOL)}"]`), slot = row?.querySelector(".positionSlot"); if (slot) {
       const type = String(h.POSITIONTYPE || "").toLowerCase(); slot.innerHTML = `<span class="positionBadge ${type}">${h.POSITIONTYPE} ${h.QUANTITY}</span>`
     }
   }
-)
+  )
 }
-function getFilledOrders(){
+function getFilledOrders() {
   return allOrders.filter(o => String(o.STATUS).toLowerCase() === "filled" && o.SYMBOL === selectedsymbol)
 }
-function plotFilledOrders(){
-  if(!selectedsymbol || !filledOrderVisible){
+function plotFilledOrders() {
+  if (!selectedsymbol || !filledOrderVisible) {
     candleSeries.setMarkers([]);
     return
   }
   const orders = getFilledOrders(), activeTimestamps = getActiveCandleTimestamps();
-  if(!orders.length || !activeTimestamps.length){
+  if (!orders.length || !activeTimestamps.length) {
     candleSeries.setMarkers([]);
     return
   }
   const grouped = new Map();
   orders.forEach(order => {
-    const seconds = Math.floor(Number(order.EXECUTEDTIMESTAMP || order.TIMESTAMP) / 1e3), chartTime = activeTimestamps.reduce((p, c) => c <= seconds?c: p, activeTimestamps[0]); if(!grouped.has(chartTime))grouped.set(chartTime, {
+    const seconds = Math.floor(Number(order.EXECUTEDTIMESTAMP || order.TIMESTAMP) / 1e3), chartTime = activeTimestamps.reduce((p, c) => c <= seconds ? c : p, activeTimestamps[0]); if (!grouped.has(chartTime)) grouped.set(chartTime, {
       buy: [], sell: []
     }
-); (order.ACTION === "BUY"?grouped.get(chartTime).buy: grouped.get(chartTime).sell).push(order)
+    ); (order.ACTION === "BUY" ? grouped.get(chartTime).buy : grouped.get(chartTime).sell).push(order)
   }
-);
+  );
   const markers = [];
-  for(const[t, orders]of grouped){
-    if(orders.buy.length){
+  for (const [t, orders] of grouped) {
+    if (orders.buy.length) {
       const q = orders.buy.reduce((s, o) => s + Number(o.QUANTITY), 0), avg = orders.buy.reduce((s, o) => s + Number(o.EXECUTEDPRICE) * Number(o.QUANTITY), 0) / q;
       markers.push({
         time: t, position: "belowBar", color: "#00c076", shape: "arrowUp", text: `${q} @ ${fmtNum(avg)}`
       }
-)
+      )
     }
-    if(orders.sell.length){
+    if (orders.sell.length) {
       const q = orders.sell.reduce((s, o) => s + Number(o.QUANTITY), 0), avg = orders.sell.reduce((s, o) => s + Number(o.EXECUTEDPRICE) * Number(o.QUANTITY), 0) / q;
       markers.push({
         time: t, position: "aboveBar", color: "#ff4d5a", shape: "arrowDown", text: `${q} @ ${fmtNum(avg)}`
       }
-)
+      )
     }
   }
   markers.sort((a, b) => a.time - b.time);
   candleSeries.setMarkers(markers)
 }
-function getPendingOrders(){
+function getPendingOrders() {
   return allOrders.filter(o => String(o.STATUS).toLowerCase() === "pending" && o.SYMBOL === selectedsymbol)
 }
-function getTriggerPendingOrders(){
+function getTriggerPendingOrders() {
   return allOrders.filter(o => String(o.STATUS).toLowerCase() === "triggerpending" && o.SYMBOL === selectedsymbol)
 }
 function removeOrderLineItems(items) {
@@ -2012,7 +2372,7 @@ function removeOrderLineItems(items) {
 
     try {
       candleSeries.removePriceLine(line);
-    } catch {}
+    } catch { }
   });
 }
 
@@ -2224,7 +2584,7 @@ function startOrderLineDrag(event) {
       handleScroll: false,
       handleScale: false
     });
-  } catch {}
+  } catch { }
 
   showToast("Drag order line to modify price", "info");
 }
@@ -2274,7 +2634,7 @@ async function finishOrderLineDrag(event) {
       handleScroll: true,
       handleScale: true
     });
-  } catch {}
+  } catch { }
 
   const item = drag.item;
   const oldPrice = drag.originalPrice;
@@ -2327,15 +2687,15 @@ function buildDraggedOrderLineTitle(item, price) {
 
   return `↕ Pending ${action} ${qty} @ ${fmtNum(price)}`;
 }
-function plotPositionLines(){
+function plotPositionLines() {
   avgPositionLines.forEach(line => candleSeries.removePriceLine(line));
   pnlPositionLines.forEach(line => candleSeries.removePriceLine(line));
   avgPositionLines = [];
   pnlPositionLines = [];
   const h = getActiveHoldings();
-  if(!h || !h.ISACTIVE)return;
+  if (!h || !h.ISACTIVE) return;
   const ltp = allLTP[selectedsymbol] || currentLTP;
-  if(!ltp)return;
+  if (!ltp) return;
   const avg = Number(h.AVERAGEPRICE);
   const qty = Number(h.QUANTITY);
 
@@ -2348,11 +2708,11 @@ function plotPositionLines(){
   avgPositionLines.push(candleSeries.createPriceLine({
     price: avg, color: "#c9a96e", lineWidth: 2, axisLabelVisible: true, title: `AVG ${qty}`
   }
-));
+  ));
   pnlPositionLines.push(candleSeries.createPriceLine({
-    price: ltp, color: pnl >= 0?"#00c076": "#ff4d5a", lineWidth: 2, axisLabelVisible: true, title: `${pnl>=0?"+":""}${formatMoney(pnl)}`
+    price: ltp, color: pnl >= 0 ? "#00c076" : "#ff4d5a", lineWidth: 2, axisLabelVisible: true, title: `${pnl >= 0 ? "+" : ""}${formatMoney(pnl)}`
   }
-))
+  ))
 }
 function getSortedCandles() {
   return Object.values(candleBuckets)
@@ -2798,23 +3158,23 @@ async function placePresetExitOrders(plan, groupTag) {
     await fetchOrderBook();
   }
 }
-function setupKeyboardShortcuts(){
+function setupKeyboardShortcuts() {
   document.addEventListener("keydown", e => {
-    const tag = e.target.tagName, isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT", key = e.key.toLowerCase(), ctrlOrCmd = e.ctrlKey || e.metaKey; if(e.repeat)return; if(key === "?" && !isTyping){
-      e.preventDefault(); 
-      openShortcutHelp(); 
+    const tag = e.target.tagName, isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT", key = e.key.toLowerCase(), ctrlOrCmd = e.ctrlKey || e.metaKey; if (e.repeat) return; if (key === "?" && !isTyping) {
+      e.preventDefault();
+      openShortcutHelp();
       return
     }
-    if(ctrlOrCmd && e.key === "Enter"){
-      e.preventDefault(); submitSelectedOrder(); 
+    if (ctrlOrCmd && e.key === "Enter") {
+      e.preventDefault(); submitSelectedOrder();
       return
     }
-    if(e.altKey && e.key === "ArrowUp"){
-      e.preventDefault(); adjustLots(1); 
+    if (e.altKey && e.key === "ArrowUp") {
+      e.preventDefault(); adjustLots(1);
       return
     }
-    if(e.altKey && e.key === "ArrowDown"){
-      e.preventDefault(); adjustLots(- 1); 
+    if (e.altKey && e.key === "ArrowDown") {
+      e.preventDefault(); adjustLots(- 1);
       return
     }
     if (e.altKey && key === "b") {
@@ -2827,24 +3187,24 @@ function setupKeyboardShortcuts(){
       placePresetOrder("SELL");
       return;
     }
-    if(e.key === "Escape"){
-      e.preventDefault(); 
-      if(isChartFullscreen){
-        setChartFullscreen(false); 
-        return;
-      }
+    if (e.key === "Escape") {
+      e.preventDefault();
       if (activeOrderLineDrag) {
         cancelOrderLineDrag();
         return;
       }
-      closeModifyDropdown(); 
-      closeShortcutHelp(); 
+      if (isChartFullscreen) {
+        setChartFullscreen(false);
+        return;
+      }
+      closeModifyDropdown();
+      closeShortcutHelp();
       closePresetModal();
-      els.stockModal.classList.add("hidden"); 
-      document.activeElement?.blur(); 
+      els.stockModal.classList.add("hidden");
+      document.activeElement?.blur();
       return;
     }
-    if(isTyping)return; 
+    if (isTyping) return;
     if (e.altKey && key === "q") {
       e.preventDefault();
       toggleChartOrderMode();
@@ -2855,9 +3215,9 @@ function setupKeyboardShortcuts(){
       toggleChartAlertMode();
       return;
     }
-    if(e.altKey && key === "d"){
-      e.preventDefault(); 
-      toggleCompactMode(); 
+    if (e.altKey && key === "d") {
+      e.preventDefault();
+      toggleCompactMode();
       return
     }
     if (key === "+" || key === "=") {
@@ -2870,136 +3230,288 @@ function setupKeyboardShortcuts(){
       zoomChart("out");
       return;
     }
-    if(key === "f"){
+    if (key === "f") {
       e.preventDefault(); toggleChartFullscreen(); return
     }
-    if(key === "b"){
+    if (key === "b") {
       e.preventDefault(); setOrderSide("BUY"); return
     }
-    if(key === "s"){
+    if (key === "s") {
       e.preventDefault(); setOrderSide("SELL"); return
     }
-    if(key === "r"){
+    if (key === "r") {
       e.preventDefault(); resetChartView(); return
     }
-    if(key === "i"){
+    if (key === "i") {
       e.preventDefault(); document.getElementById("toggleSMA").click(); return
     }
-    if(key === "o"){
+    if (key === "o") {
       e.preventDefault(); document.getElementById("toggleFilledOrders").click(); return
     }
-    if(key === "x" && e.shiftKey){
+    if (key === "x" && e.shiftKey) {
       e.preventDefault(); exitAll(); return
     }
-    if(key === "x"){
-      e.preventDefault(); const h = getActiveHoldings(); if(h)squareOff(h.SYMBOL, h.QUANTITY, h.POSITIONTYPE); return
+    if (key === "x") {
+      e.preventDefault(); const h = getActiveHoldings(); if (h) squareOff(h.SYMBOL, h.QUANTITY, h.POSITIONTYPE); return
     }
-    if(e.key === "ArrowDown"){
+    if (e.key === "ArrowDown") {
       e.preventDefault(); moveWatchlistSelection(1); return
     }
-    if(e.key === "ArrowUp"){
+    if (e.key === "ArrowUp") {
       e.preventDefault(); moveWatchlistSelection(- 1); return
     }
     const map = {
       1: "1", 2: "5", 3: "15", 4: "30", 5: "60"
-    }; if(map[key]){
+    }; if (map[key]) {
       e.preventDefault(); document.querySelector(`#timeframeSelector button[data-tf="${map[key]}"]`)?.click(); return
     }
-    if(e.altKey && key === "m"){
+    if (e.altKey && key === "m") {
       e.preventDefault(); setOrderType("market"); return
     }
-    if(e.altKey && key === "l"){
+    if (e.altKey && key === "l") {
       e.preventDefault(); setOrderType("limit"); return
     }
-    if(e.altKey && key === "t"){
+    if (e.altKey && key === "t") {
       e.preventDefault(); setOrderType("stoploss")
     }
   }
-)
+  )
 }
-function adjustLots(delta){
+function adjustLots(delta) {
   const current = parseInt(els.orderLot.value, 10) || 1;
   els.orderLot.value = Math.max(1, current + delta);
   updateEstimatedAmount({
     LTP: currentLTP
   }
-)
+  )
 }
-function setOrderType(type){
+function setOrderType(type) {
   els.orderType.value = type;
   fillOrderForm(type);
   updateEstimatedAmount({
     LTP: currentLTP
   }
-)
+  )
 }
-function openShortcutHelp(){
+function openShortcutHelp() {
   els.shortcutModal.classList.remove("hidden")
 }
-function closeShortcutHelp(){
+function closeShortcutHelp() {
   els.shortcutModal.classList.add("hidden")
 }
-function toggleChartFullscreen(){
+function toggleChartFullscreen() {
   setChartFullscreen(!isChartFullscreen)
 }
-function setChartFullscreen(enabled){
+function setChartFullscreen(enabled) {
   isChartFullscreen = enabled;
   document.body.classList.toggle("chartFullscreen", enabled);
-  if(els.toggleFullscreenChart){
+  if (els.toggleFullscreenChart) {
     els.toggleFullscreenChart.classList.toggle("active", enabled);
     const icon = els.toggleFullscreenChart.querySelector("i");
-    if(icon)icon.className = enabled?"fa-solid fa-compress": "fa-solid fa-expand"
+    if (icon) icon.className = enabled ? "fa-solid fa-compress" : "fa-solid fa-expand"
   }
   resizeChartToContainer(true)
 }
-function resizeChartToContainer(preserveRange = false){
-  if(!chart || !els.chart)return;
-  const visibleRange = preserveRange?chart.timeScale().getVisibleLogicalRange(): null;
+function resizeChartToContainer(preserveRange = false) {
+  if (!chart || !els.chart) return;
+  const visibleRange = preserveRange ? chart.timeScale().getVisibleLogicalRange() : null;
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       chart.applyOptions({
         width: els.chart.clientWidth, height: els.chart.clientHeight
       }
-); if(visibleRange)chart.timeScale().setVisibleLogicalRange(visibleRange)
+      ); if (visibleRange) chart.timeScale().setVisibleLogicalRange(visibleRange)
     }
-)
+    )
   }
-)
+  )
 }
-function toggleCompactMode(){
+function toggleCompactMode() {
   setCompactMode(!compactMode, true)
 }
-function setCompactMode(enabled, notify = true){
+function setCompactMode(enabled, notify = true) {
   compactMode = enabled;
   document.body.classList.toggle("compactMode", enabled);
   localStorage.setItem("tt_compactMode", JSON.stringify(enabled));
   resizeChartToContainer(true);
-  if(notify)showToast(enabled?"Compact layout enabled": "Comfortable layout enabled", "info")
+  if (notify) showToast(enabled ? "Compact layout enabled" : "Comfortable layout enabled", "info")
 }
-function getCandleTime(ms){
+function getCandleTime(ms) {
   const sec = Math.floor(Number(ms) / 1e3), interval = selectedtimeframe * 60;
   return Math.floor(sec / interval) * interval
 }
-function clearBuckets(){
+function clearBuckets() {
+  clearChartOrderPreview();
+
+  rawCandleData = [];
   candleBuckets = {};
-  candleSeries.setData([]);
-  volumeSeries.setData([]);
-  smaSeries.setData([]);
-  candleSeries.setMarkers([]);
-  legend.innerHTML = ""
+
+  removePriceLinesFromSeries(pendingLines);
+  removePriceLinesFromSeries(triggerLines);
+  removePriceLinesFromSeries(avgPositionLines);
+  removePriceLinesFromSeries(pnlPositionLines);
+  removePriceLinesFromSeries(priceAlertLines);
+
+  pendingLines = [];
+  triggerLines = [];
+  avgPositionLines = [];
+  pnlPositionLines = [];
+  priceAlertLines = [];
+
+  if (candleSeries) {
+    candleSeries.setData([]);
+    candleSeries.setMarkers([]);
+  }
+
+  if (volumeSeries) {
+    volumeSeries.setData([]);
+  }
+
+  if (smaSeries) {
+    smaSeries.setData([]);
+  }
+
+  removeAllIndicatorSeries();
+
+  if (legend) {
+    legend.innerHTML = "";
+  }
 }
-function getActiveCandleTimestamps(){
+function removePriceLinesFromSeries(lines) {
+  lines.forEach(item => {
+    const line = item?.line || item;
+
+    try {
+      candleSeries.removePriceLine(line);
+    } catch {}
+  });
+}
+
+function removeAllIndicatorSeries() {
+  Object.keys(indicatorSeries).forEach(key => {
+    removeIndicatorSeries(key);
+  });
+}
+function getActiveCandleTimestamps() {
   return Object.values(candleBuckets).map(b => b.time).sort((a, b) => a - b)
 }
-function calculateSMA(data, period){
-  return data.map((c, i, arr) => {
-    if(i < period)return{
-      time: c.time, value: undefined
-    }; const slice = arr.slice(i - period, i), avg = slice.reduce((s, x) => s + Number(x.close), 0) / period; return{
-      time: c.time, value: avg
-    }
+function calculateSMA(data, period) {
+  const result = [];
+
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    const avg = slice.reduce((sum, candle) => sum + Number(candle.close), 0) / period;
+
+    result.push({
+      time: data[i].time,
+      value: avg
+    });
   }
-)
+
+  return result;
+}
+function calculateEMA(data, period) {
+  const result = [];
+
+  if (!data || data.length < period) {
+    return result;
+  }
+
+  const multiplier = 2 / (period + 1);
+
+  let ema =
+    data
+      .slice(0, period)
+      .reduce((sum, candle) => sum + Number(candle.close), 0) / period;
+
+  result.push({
+    time: data[period - 1].time,
+    value: ema
+  });
+
+  for (let i = period; i < data.length; i++) {
+    const close = Number(data[i].close);
+
+    ema = (close - ema) * multiplier + ema;
+
+    result.push({
+      time: data[i].time,
+      value: ema
+    });
+  }
+
+  return result;
+}
+function calculateVWAP(data) {
+  const result = [];
+
+  let cumulativePV = 0;
+  let cumulativeVolume = 0;
+
+  data.forEach(candle => {
+    const high = Number(candle.high);
+    const low = Number(candle.low);
+    const close = Number(candle.close);
+    const volume = Number(candle.volume || 0);
+
+    const typicalPrice = (high + low + close) / 3;
+
+    cumulativePV += typicalPrice * volume;
+    cumulativeVolume += volume;
+
+    if (cumulativeVolume > 0) {
+      result.push({
+        time: candle.time,
+        value: cumulativePV / cumulativeVolume
+      });
+    }
+  });
+
+  return result;
+}
+function calculateBollingerBands(data, period = 20, multiplier = 2) {
+  const upper = [];
+  const middle = [];
+  const lower = [];
+
+  if (!data || data.length < period) {
+    return { upper, middle, lower };
+  }
+
+  for (let i = period - 1; i < data.length; i++) {
+    const slice = data.slice(i - period + 1, i + 1);
+    const closes = slice.map(candle => Number(candle.close));
+
+    const avg = closes.reduce((sum, value) => sum + value, 0) / period;
+
+    const variance =
+      closes.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) / period;
+
+    const stdDev = Math.sqrt(variance);
+
+    const time = data[i].time;
+
+    middle.push({
+      time,
+      value: avg
+    });
+
+    upper.push({
+      time,
+      value: avg + stdDev * multiplier
+    });
+
+    lower.push({
+      time,
+      value: avg - stdDev * multiplier
+    });
+  }
+
+  return {
+    upper,
+    middle,
+    lower
+  };
 }
 function cancelOrderLineDrag() {
   if (!activeOrderLineDrag) return;
@@ -3016,27 +3528,27 @@ function cancelOrderLineDrag() {
       price: drag.originalPrice,
       title: buildDraggedOrderLineTitle(item, drag.originalPrice)
     });
-  } catch {}
+  } catch { }
 
   try {
     chart.applyOptions({
       handleScroll: true,
       handleScale: true
     });
-  } catch {}
+  } catch { }
 
   els.chart.classList.remove("draggingOrderLine");
   els.chart.classList.remove("orderLineHover");
 
   showToast("Order line drag cancelled", "info");
 }
-async function resetChartView(){
-  if(!selectedsymbol)return;
+async function resetChartView() {
+  if (!selectedsymbol) return;
   await getCandleData();
   chart.priceScale("right").applyOptions({
     autoScale: true
   }
-);
+  );
   plotFilledOrders();
   plotOrderLines();
   plotPositionLines()
@@ -3094,11 +3606,11 @@ function flashChartZoom(direction) {
     setTimeout(() => badge.remove(), 180);
   }, 420);
 }
-function updateSelectedSymbolSummary(){
+function updateSelectedSymbolSummary() {
   const title = document.getElementById("selectedSymbolTitle"), sub = document.getElementById("selectedSymbolSub"),
-  ltpEl = document.getElementById("symbolLtp"), posEl = document.getElementById("symbolPosition"), pnlEl = document.getElementById("symbolPnl");
+    ltpEl = document.getElementById("symbolLtp"), posEl = document.getElementById("symbolPosition"), pnlEl = document.getElementById("symbolPnl");
   els.ticketSymbol.textContent = selectedsymbol || "--";
-  if(!selectedsymbol){
+  if (!selectedsymbol) {
     title.textContent = "Select a symbol";
     sub.textContent = "Use watchlist ↑ ↓ to navigate";
     ltpEl.textContent = "₹--";
@@ -3109,9 +3621,9 @@ function updateSelectedSymbolSummary(){
   title.textContent = selectedsymbol;
   sub.textContent = `Timeframe ${selectedtimeframe}m · Charges estimated`;
   const ltp = allLTP[selectedsymbol] || currentLTP;
-  ltpEl.textContent = ltp?formatMoney(ltp): "₹--";
+  ltpEl.textContent = ltp ? formatMoney(ltp) : "₹--";
   const h = getActiveHoldings();
-  if(h){
+  if (h) {
     posEl.textContent = `${h.POSITIONTYPE} ${h.QUANTITY}`;
     const pnl = calculatePositionExitPnl(
       h.POSITIONTYPE,
@@ -3119,11 +3631,11 @@ function updateSelectedSymbolSummary(){
       Number(h.AVERAGEPRICE),
       ltp
     );
-    pnlEl.textContent = ltp?formatMoney(pnl): "₹--";
+    pnlEl.textContent = ltp ? formatMoney(pnl) : "₹--";
     pnlEl.classList.toggle("positive", pnl >= 0);
     pnlEl.classList.toggle("negative", pnl < 0)
   }
-  else{
+  else {
     posEl.textContent = "--";
     pnlEl.textContent = "₹--";
     pnlEl.classList.remove("positive", "negative")
@@ -3131,60 +3643,56 @@ function updateSelectedSymbolSummary(){
   updateEstimatedAmount({
     LTP: ltp
   }
-)
+  )
 }
-function updateMarketStatus(){
+function updateMarketStatus() {
   const chip = document.getElementById("marketStatus"), dot = chip.querySelector(".statusDot"), label = chip.querySelector("span:last-child"),
-  ist = new Date(new Date().toLocaleString("en-US", {
-    timeZone: "Asia/Kolkata"
-  }
-)), mins = ist.getHours() * 60 + ist.getMinutes(), isWeekday = ist.getDay() >= 1 && ist.getDay() <= 5,
-  isOpen = isWeekday && mins >= 555 && mins <= 930;
-  dot.className = `statusDot ${isOpen?"open":"closed"}`;
-  label.textContent = isOpen?"Market Open": "Market Closed"
+    ist = new Date(new Date().toLocaleString("en-US", {
+      timeZone: "Asia/Kolkata"
+    }
+    )), mins = ist.getHours() * 60 + ist.getMinutes(), isWeekday = ist.getDay() >= 1 && ist.getDay() <= 5,
+    isOpen = isWeekday && mins >= 555 && mins <= 930;
+  dot.className = `statusDot ${isOpen ? "open" : "closed"}`;
+  label.textContent = isOpen ? "Market Open" : "Market Closed"
 }
-function fmtNum(value){
+function fmtNum(value) {
   const n = Number(value);
-  return Number.isFinite(n)?n.toLocaleString("en-IN", {
+  return Number.isFinite(n) ? n.toLocaleString("en-IN", {
     minimumFractionDigits: 2, maximumFractionDigits: 2
   }
-): "--"
+  ) : "--"
 }
-function formatMoney(value){
+function formatMoney(value) {
   const n = Number(value);
-  return Number.isFinite(n)?`₹${n.toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`: "₹--"
+  return Number.isFinite(n) ? `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "₹--"
 }
-function cssEscape(value){
-  return window.CSS && CSS.escape?CSS.escape(value): String(value).replace(/ ["\\]/g,"\\$&")
+function cssEscape(value) {
+  return window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/ ["\\]/g, "\\$&")
 }
-function showToast(message,type="success")
-{
+function showToast(message, type = "success") {
   const toast = document.createElement("div");
   const icon = type === "success" ? "fa-circle-check" : type === "error" ? "fa-circle-exclamation" : "fa-circle-info";
-  toast.className=`toast ${type}`;
-  toast.innerHTML=`<i class="fa-solid ${icon}"></i> ${message}`;
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<i class="fa-solid ${icon}"></i> ${message}`;
   document.getElementById("toastContainer").appendChild(toast);
-  setTimeout(()=>toast.classList.add("show"),40);
-  setTimeout(()=>{
+  setTimeout(() => toast.classList.add("show"), 40);
+  setTimeout(() => {
     toast.classList.remove("show");
-    setTimeout(()=>toast.remove(),250)
-  },3200);
+    setTimeout(() => toast.remove(), 250)
+  }, 3200);
 }
-async function logOut()
-{
-  try
-  {
+async function logOut() {
+  try {
     await apiFetch(`${base_url}/api/account/signout?useCookie=true`,
       {
-        method:"POST"
+        method: "POST"
       }
     )
-  }catch{}finally
-  {
+  } catch { } finally {
     sessionStorage.removeItem("token");
     localStorage.removeItem("token");
     localStorage.removeItem("refreshToken");
-    location.href="signin.html"
+    location.href = "signin.html"
   }
 }
 function loadPresetSettings() {
