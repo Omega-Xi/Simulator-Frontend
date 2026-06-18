@@ -2,6 +2,9 @@ const host = "localhost";
 const base_url = window.TELOTRADE_API_BASE_URL || (location.port === "7239"?location.origin: `https://${host}:7239`);
 const TRADE_CHARGE_CONFIG = window.TELOTRADE_CHARGES;
 const PRESET_STORAGE_KEY = "tt_presetOrderSettings";
+const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
+const MIN_REFRESH_DELAY_MS = 10_000;
+let accessRefreshTimer = null;
 let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, wsReconnectTimer = null;
 let selectedsymbol = localStorage.getItem("tt_selectedSymbol") || "", currentLotSize = 0, selectedtimeframe = Number(localStorage.getItem("tt_timeframe") || 1),
 candleBuckets = {}, smaVisible = JSON.parse(localStorage.getItem("tt_smaVisible") ?? "true"), filledOrderVisible = JSON.parse(localStorage.getItem("tt_filledOrdersVisible") ?? "false"),
@@ -39,6 +42,16 @@ document.addEventListener("DOMContentLoaded", async() => {
     catch{
       location.href = "signin.html"; return
     }
+  }
+  else if (isTokenExpiringSoon(token, 30_000)) {
+    try {
+      token = await refreshAccessToken();
+    } catch {
+      location.href = "signin.html";
+      return;
+    }
+  } else {
+    scheduleAccessTokenRefresh(token);
   }
   setupChart(); 
   setupEventHandlers(); 
@@ -214,23 +227,130 @@ function restoreUiPreferences(){
   document.getElementById("toggleSMA").classList.toggle("active", smaVisible);
   document.getElementById("toggleFilledOrders").classList.toggle("active", filledOrderVisible)
 }
-async function refreshAccessToken(){
-  if(!refreshPromise){
-    refreshPromise = fetch(`${base_url}/api/account/refresh?useCookie=true`, {
-      method: "POST", credentials: "include"
-    }
-).then(async res => {
-      if(!res.ok)throw new Error("Session expired"); return res.json()
-    }
-).then(data => {
-      token = data.TOKEN || data.token; if(!token)throw new Error("No token returned"); sessionStorage.setItem("token", token); return token
-    }
-).finally(() => refreshPromise = null)
+function decodeJwtPayload(jwt) {
+  try {
+    const payload = jwt.split(".")[1];
+
+    const normalized = payload
+      .replace(/-/g, "+")
+      .replace(/_/g, "/");
+
+    const json = decodeURIComponent(
+      atob(normalized)
+        .split("")
+        .map(char => {
+          return "%" + ("00" + char.charCodeAt(0).toString(16)).slice(-2);
+        })
+        .join("")
+    );
+
+    return JSON.parse(json);
+  } catch {
+    return null;
   }
-  return refreshPromise
+}
+
+function getJwtExpiryMs(jwt) {
+  const payload = decodeJwtPayload(jwt);
+
+  if (!payload?.exp) {
+    return null;
+  }
+
+  return Number(payload.exp) * 1000;
+}
+
+function isTokenExpiringSoon(jwt, skewMs = ACCESS_TOKEN_REFRESH_SKEW_MS) {
+  const expiryMs = getJwtExpiryMs(jwt);
+
+  if (!expiryMs) {
+    return true;
+  }
+
+  return Date.now() >= expiryMs - skewMs;
+}
+function scheduleAccessTokenRefresh(jwt = token) {
+  clearTimeout(accessRefreshTimer);
+
+  const expiryMs = getJwtExpiryMs(jwt);
+
+  if (!expiryMs) {
+    return;
+  }
+
+  const delay = Math.max(
+    MIN_REFRESH_DELAY_MS,
+    expiryMs - Date.now() - ACCESS_TOKEN_REFRESH_SKEW_MS
+  );
+
+  accessRefreshTimer = setTimeout(async () => {
+    try {
+      await refreshAccessToken();
+
+      reconnectWebSocketAfterTokenRefresh();
+    } catch {
+      sessionStorage.removeItem("token");
+      location.href = "signin.html";
+    }
+  }, delay);
+}
+
+function reconnectWebSocketAfterTokenRefresh() {
+  if (!ws) {
+    connectWebSocket();
+    return;
+  }
+
+  if (
+    ws.readyState === WebSocket.OPEN ||
+    ws.readyState === WebSocket.CONNECTING
+  ) {
+    ws.onclose = null;
+
+    try {
+      ws.close(1000, "Refreshing access token");
+    } catch {}
+  }
+
+  ws = null;
+  connectWebSocket();
+}
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${base_url}/api/account/refresh?useCookie=true`, {
+      method: "POST",
+      credentials: "include"
+    })
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error("Session expired");
+        }
+
+        return res.json();
+      })
+      .then(data => {
+        token = data.TOKEN || data.token;
+
+        if (!token) {
+          throw new Error("No token returned");
+        }
+
+        sessionStorage.setItem("token", token);
+        scheduleAccessTokenRefresh(token);
+
+        return token;
+      })
+      .finally(() => {
+        refreshPromise = null;
+      });
+  }
+
+  return refreshPromise;
 }
 async function apiFetch(url, options = {}, retry = true){
-  if(!token)token = await refreshAccessToken();
+  if (!token || isTokenExpiringSoon(token, 15_000)) {
+    token = await refreshAccessToken();
+  }
   const headers = {
 ...(options.headers || {}), Authorization: `Bearer ${token}`
   };
@@ -275,7 +395,7 @@ function getWsUrl(){
 }
 async function connectWebSocket(){
   clearTimeout(wsReconnectTimer);
-  if(!token){
+  if(!token || isTokenExpiringSoon(token, 15_000)){
     try{
       token = await refreshAccessToken()
     }
