@@ -4,6 +4,21 @@ const TRADE_CHARGE_CONFIG = window.TELOTRADE_CHARGES;
 const PRESET_STORAGE_KEY = "tt_presetOrderSettings";
 const ACCESS_TOKEN_REFRESH_SKEW_MS = 60_000;
 const MIN_REFRESH_DELAY_MS = 10_000;
+const PRICE_ALERT_STORAGE_KEY = "tt_priceAlerts";
+const PRICE_ALERT_COOLDOWN_MS = 20000;
+const ALERT_SOUND_VOLUME = 0.85;
+const ORDER_LINE_DRAG_TOLERANCE_PX = 9;
+
+let activeOrderLineDrag = null;
+let orderLineDragBound = false;
+let chartOrderMode = false;
+let chartOrderPreviewLine = null;
+let chartOrderPopup = null;
+let alertAudioContext = null;
+let alertMasterGain = null;
+let priceAlerts = [];
+let priceAlertLines = [];
+let chartAlertMode = false;
 let accessRefreshTimer = null;
 let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, wsReconnectTimer = null;
 let selectedsymbol = localStorage.getItem("tt_selectedSymbol") || "", currentLotSize = 0, selectedtimeframe = Number(localStorage.getItem("tt_timeframe") || 1),
@@ -35,6 +50,8 @@ const els = {};
 document.addEventListener("DOMContentLoaded", async() => {
   cacheDom();
   loadPresetSettings();
+  loadPriceAlerts();
+  setupAlertAudioUnlock();
   if(!token){
     try{
       token = await refreshAccessToken()
@@ -99,6 +116,8 @@ function cacheDom(){
     "orderTabs", 
     "submitOrderBtn", 
     "toggleFullscreenChart",
+    "toggleChartAlertMode",
+    "toggleChartOrderMode",
     "presetSettingsBtn",
     "presetModal",
     "closePresetModal",
@@ -128,6 +147,8 @@ function setupEventHandlers(){
   if(els.closePresetModal)els.closePresetModal.onclick = closePresetModal;
   if(els.savePresetSettings)els.savePresetSettings.onclick = savePresetSettingsFromModal;
   if(els.resetPresetSettings)els.resetPresetSettings.onclick = resetPresetSettings;
+  if (els.toggleChartAlertMode)els.toggleChartAlertMode.onclick = toggleChartAlertMode;
+  if (els.toggleChartOrderMode)els.toggleChartOrderMode.onclick = toggleChartOrderMode;
   [
     els.presetBudgetEnabled,
     els.presetRiskEnabled,
@@ -482,7 +503,7 @@ function pulseHeader(){
   document.querySelector(".topBar")?.animate([{
     boxShadow: "0 0 0 rgba(201,169,110,0)"
   }, {
-    boxShadow: "0 0 28px rgba(201,169,110,.18)"
+    boxShadow: "0 0 28px rgba(181, 150, 92, 0.37)"
   }, {
     boxShadow: "0 0 0 rgba(201,169,110,0)"
   }
@@ -555,6 +576,9 @@ function setupChart(){
   smaTooltip.className = "sma-tooltip";
   els.chart.appendChild(smaTooltip);
   chart.subscribeCrosshairMove(onCrosshairMove);
+  chart.subscribeClick(handleChartAlertClick);
+  chart.subscribeClick(handleChartOrderClick);
+  setupDraggableOrderLines();
   els.chart.addEventListener("dblclick", resetChartView)
 }
 function onCrosshairMove(param){
@@ -595,6 +619,502 @@ function onCrosshairMove(param){
   }
   else smaTooltip.style.display = "none"
 }
+
+function loadPriceAlerts() {
+  try {
+    priceAlerts = JSON.parse(localStorage.getItem(PRICE_ALERT_STORAGE_KEY) || "[]");
+  } catch {
+    priceAlerts = [];
+    localStorage.removeItem(PRICE_ALERT_STORAGE_KEY);
+  }
+}
+function savePriceAlerts() {
+  localStorage.setItem(PRICE_ALERT_STORAGE_KEY, JSON.stringify(priceAlerts));
+}
+function createPriceAlertId() {
+  return `ALERT_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+}
+function toggleChartAlertMode() {
+  chartAlertMode = !chartAlertMode;
+
+  els.toggleChartAlertMode?.classList.toggle("active", chartAlertMode);
+  els.chart?.classList.toggle("alertMode", chartAlertMode);
+
+  showToast(
+    chartAlertMode
+      ? "Alert mode enabled. Click a price level on the chart."
+      : "Alert mode disabled.",
+    "info"
+  );
+}
+function handleChartAlertClick(param) {
+  if (!chartAlertMode) return;
+
+  if (!selectedsymbol) {
+    showToast("Select a symbol before setting an alert", "error");
+    return;
+  }
+
+  if (!param.point || !candleSeries) {
+    return;
+  }
+
+  const clickedPrice = candleSeries.coordinateToPrice(param.point.y);
+
+  if (!clickedPrice || clickedPrice <= 0) {
+    return;
+  }
+
+  const alertPrice = roundToTick(clickedPrice);
+  const existingAlert = findNearbyPriceAlert(selectedsymbol, alertPrice);
+
+  if (existingAlert) {
+    const ok = confirm(
+      `Remove alert for ${existingAlert.symbol} at ${formatMoney(existingAlert.targetPrice)}?`
+    );
+
+    if (!ok) return;
+
+    removePriceAlert(existingAlert.id);
+    showToast("Price alert removed", "info");
+    return;
+  }
+
+  const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
+
+  const condition = ltp && alertPrice >= ltp
+    ? "above"
+    : "below";
+
+  const conditionText = condition === "above"
+    ? "at or above"
+    : "at or below";
+
+  const ok = confirm(
+    `Create alert?\n\n${selectedsymbol} ${conditionText} ${formatMoney(alertPrice)}`
+  );
+
+  if (!ok) return;
+
+  const alert = {
+    id: createPriceAlertId(),
+    symbol: selectedsymbol,
+    condition,
+    targetPrice: alertPrice,
+    repeat: false,
+    enabled: true,
+    createdAt: Date.now(),
+    lastTriggeredAt: 0,
+    lastPrice: ltp || null
+  };
+
+  priceAlerts.push(alert);
+  savePriceAlerts();
+  syncPriceAlertLines();
+
+  showToast(
+    `${selectedsymbol} alert set ${conditionText} ${formatMoney(alertPrice)}`,
+    "success"
+  );
+}
+function findNearbyPriceAlert(symbol, price) {
+  const tolerance = Math.max(Number(price) * 0.001, 0.05);
+
+  return priceAlerts.find(alert =>
+    alert.enabled &&
+    alert.symbol === symbol &&
+    Math.abs(Number(alert.targetPrice) - Number(price)) <= tolerance
+  );
+}
+function removePriceAlert(alertId) {
+  priceAlerts = priceAlerts.filter(alert => alert.id !== alertId);
+  savePriceAlerts();
+  syncPriceAlertLines();
+}
+function syncPriceAlertLines() {
+  if (!candleSeries) return;
+
+  priceAlertLines.forEach(line => {
+    try {
+      candleSeries.removePriceLine(line);
+    } catch {}
+  });
+
+  priceAlertLines = [];
+
+  if (!selectedsymbol) return;
+
+  const symbolAlerts = priceAlerts.filter(alert =>
+    alert.enabled &&
+    alert.symbol === selectedsymbol
+  );
+
+  symbolAlerts.forEach(alert => {
+    const title = alert.condition === "above"
+      ? `Alert ≥ ${fmtNum(alert.targetPrice)}`
+      : `Alert ≤ ${fmtNum(alert.targetPrice)}`;
+
+    const line = candleSeries.createPriceLine({
+      price: Number(alert.targetPrice),
+      color: "#4da3ff",
+      lineWidth: 1,
+      lineStyle: LightweightCharts.LineStyle.Dashed,
+      axisLabelVisible: true,
+      title
+    });
+
+    priceAlertLines.push(line);
+  });
+}
+function evaluatePriceAlerts(tick) {
+  const symbol = String(tick.SYMBOL || "").toUpperCase();
+  const ltp = Number(tick.LTP);
+
+  if (!symbol || !Number.isFinite(ltp)) return;
+
+  let changed = false;
+
+  priceAlerts.forEach(alert => {
+    if (!alert.enabled) return;
+    if (alert.symbol !== symbol) return;
+
+    const targetPrice = Number(alert.targetPrice);
+    const previousPrice = Number(alert.lastPrice);
+    const now = Date.now();
+
+    if (!targetPrice || targetPrice <= 0) {
+      alert.enabled = false;
+      changed = true;
+      return;
+    }
+
+    if (now - Number(alert.lastTriggeredAt || 0) < PRICE_ALERT_COOLDOWN_MS) {
+      alert.lastPrice = ltp;
+      changed = true;
+      return;
+    }
+
+    let triggered = false;
+
+    if (alert.condition === "above") {
+      triggered = previousPrice
+        ? previousPrice < targetPrice && ltp >= targetPrice
+        : ltp >= targetPrice;
+    }
+
+    if (alert.condition === "below") {
+      triggered = previousPrice
+        ? previousPrice > targetPrice && ltp <= targetPrice
+        : ltp <= targetPrice;
+    }
+
+    alert.lastPrice = ltp;
+
+    if (!triggered) {
+      changed = true;
+      return;
+    }
+
+    alert.lastTriggeredAt = now;
+
+    playPriceAlertSound(alert.condition);
+
+    showToast(
+      `${alert.symbol} ${alert.condition === "above" ? "reached" : "fell to"} ${formatMoney(targetPrice)} · LTP ${formatMoney(ltp)}`,
+      "info"
+    );
+
+    if (!alert.repeat) {
+      alert.enabled = false;
+    }
+
+    changed = true;
+  });
+
+  if (changed) {
+    savePriceAlerts();
+
+    if (symbol === selectedsymbol) {
+      syncPriceAlertLines();
+    }
+  }
+}
+function setupAlertAudioUnlock() {
+  const unlock = async () => {
+    await ensureAlertAudioContext();
+  };
+
+  document.addEventListener("click", unlock, { once: true });
+  document.addEventListener("keydown", unlock, { once: true });
+}
+async function ensureAlertAudioContext() {
+  if (!alertAudioContext) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) {
+      showToast("Audio alerts are not supported in this browser", "error");
+      return null;
+    }
+
+    alertAudioContext = new AudioContextClass();
+
+    alertMasterGain = alertAudioContext.createGain();
+    alertMasterGain.gain.value = ALERT_SOUND_VOLUME;
+    alertMasterGain.connect(alertAudioContext.destination);
+  }
+
+  if (alertAudioContext.state === "suspended") {
+    await alertAudioContext.resume();
+  }
+
+  return alertAudioContext;
+}
+async function playPriceAlertSound(type = "above") {
+  const ctx = await ensureAlertAudioContext();
+
+  if (!ctx || !alertMasterGain) return;
+
+  const now = ctx.currentTime;
+
+  const pattern = type === "below"
+    ? [740, 520, 360, 260]
+    : [520, 720, 920, 1120];
+
+  pattern.forEach((frequency, index) => {
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    const start = now + index * 0.16;
+    const peak = start + 0.025;
+    const end = start + 0.14;
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(frequency, start);
+
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.55, peak);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+    oscillator.connect(gain);
+    gain.connect(alertMasterGain);
+
+    oscillator.start(start);
+    oscillator.stop(end);
+  });
+}
+
+function toggleChartOrderMode() {
+  chartOrderMode = !chartOrderMode;
+
+  if (chartOrderMode && typeof chartAlertMode !== "undefined") {
+    chartAlertMode = false;
+    els.toggleChartAlertMode?.classList.remove("active");
+    els.chart?.classList.remove("alertMode");
+  }
+
+  els.toggleChartOrderMode?.classList.toggle("active", chartOrderMode);
+  els.chart?.classList.toggle("orderMode", chartOrderMode);
+
+  clearChartOrderPreview();
+
+  showToast(
+    chartOrderMode
+      ? "Chart order mode enabled. Click a price level."
+      : "Chart order mode disabled.",
+    "info"
+  );
+}
+function handleChartOrderClick(param) {
+  if (!chartOrderMode) return;
+
+  if (!selectedsymbol) {
+    showToast("Select a symbol before placing chart order", "error");
+    return;
+  }
+
+  if (!param.point || !candleSeries) return;
+
+  const clickedPrice = candleSeries.coordinateToPrice(param.point.y);
+
+  if (!clickedPrice || clickedPrice <= 0) return;
+
+  const price = roundToTick(clickedPrice);
+  showChartOrderPreview(price, param.point);
+}
+function getChartOrderType(action, price) {
+  const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
+
+  if (!ltp || ltp <= 0) {
+    throw new Error("Live price unavailable.");
+  }
+
+  action = String(action || "").toUpperCase();
+
+  if (action === "BUY") {
+    return price < ltp
+      ? { orderType: "limit", price, triggerPrice: 0, label: "BUY LIMIT" }
+      : { orderType: "stoploss", price: 0, triggerPrice: price, label: "BUY STOP" };
+  }
+
+  if (action === "SELL") {
+    return price > ltp
+      ? { orderType: "limit", price, triggerPrice: 0, label: "SELL LIMIT" }
+      : { orderType: "stoploss", price: 0, triggerPrice: price, label: "SELL STOP" };
+  }
+
+  throw new Error("Invalid order side.");
+}
+function showChartOrderPreview(price, point) {
+  clearChartOrderPreview();
+
+  const action = selectedOrderSide;
+  const lots = parseInt(els.orderLot.value, 10) || 0;
+  const quantity = lots * (currentLotSize || 1);
+
+  if (quantity <= 0) {
+    showToast("Enter lot count before placing chart order", "error");
+    return;
+  }
+
+  let plan;
+
+  try {
+    plan = getChartOrderType(action, price);
+    validateChartOrderPositionCompatibility(action, quantity);
+  } catch (err) {
+    showToast(err.message || "Invalid chart order", "error");
+    return;
+  }
+
+  const estimate = calculateOrderCost(action, quantity, price);
+  const required = action === "BUY"
+    ? estimate.grossBuyCost
+    : estimate.totalCharges;
+
+  chartOrderPreviewLine = candleSeries.createPriceLine({
+    price,
+    color: action === "BUY" ? "#00c076" : "#ff4d5a",
+    lineWidth: 2,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    axisLabelVisible: true,
+    title: `${plan.label} ${quantity}`
+  });
+
+  chartOrderPopup = document.createElement("div");
+  chartOrderPopup.className = `chartOrderPopup ${action.toLowerCase()}`;
+
+  chartOrderPopup.innerHTML = `
+    <div class="chartOrderHead">
+      <strong>${plan.label}</strong>
+      <button type="button" data-chart-order-close>&times;</button>
+    </div>
+
+    <div class="chartOrderBody">
+      <div><span>Symbol</span><b>${selectedsymbol}</b></div>
+      <div><span>Price</span><b>${formatMoney(price)}</b></div>
+      <div><span>Qty</span><b>${quantity.toLocaleString("en-IN")}</b></div>
+      <div><span>${action === "BUY" ? "Required" : "Charges"}</span><b>${formatMoney(required)}</b></div>
+    </div>
+
+    <button type="button" class="chartOrderPlace">
+      Place ${plan.label}
+    </button>
+  `;
+
+  els.chart.appendChild(chartOrderPopup);
+
+  const chartRect = els.chart.getBoundingClientRect();
+  const popupWidth = 220;
+
+  const left = Math.min(
+    Math.max(12, point.x + 14),
+    chartRect.width - popupWidth - 12
+  );
+
+  const top = Math.min(
+    Math.max(12, point.y - 70),
+    chartRect.height - 150
+  );
+
+  chartOrderPopup.style.left = `${left}px`;
+  chartOrderPopup.style.top = `${top}px`;
+
+  chartOrderPopup.querySelector("[data-chart-order-close]").onclick = clearChartOrderPreview;
+
+  chartOrderPopup.querySelector(".chartOrderPlace").onclick = () => {
+    placeChartOrder({
+      action,
+      quantity,
+      orderType: plan.orderType,
+      price: plan.price,
+      triggerPrice: plan.triggerPrice
+    });
+  };
+}
+function clearChartOrderPreview() {
+  if (chartOrderPreviewLine) {
+    try {
+      candleSeries.removePriceLine(chartOrderPreviewLine);
+    } catch {}
+
+    chartOrderPreviewLine = null;
+  }
+
+  chartOrderPopup?.remove();
+  chartOrderPopup = null;
+}
+function validateChartOrderPositionCompatibility(action, quantity) {
+  const activeHolding = getActiveHoldings();
+
+  if (!activeHolding) return;
+
+  const activeQty = Number(activeHolding.QUANTITY || 0);
+  const activeType = String(activeHolding.POSITIONTYPE || "").toUpperCase();
+
+  if (activeType === "LONG" && action === "SELL" && quantity > activeQty) {
+    throw new Error("Cannot sell more than current long quantity. Square off first.");
+  }
+
+  if (activeType === "SHORT" && action === "BUY" && quantity > activeQty) {
+    throw new Error("Cannot cover more than current short quantity. Square off first.");
+  }
+}
+async function placeChartOrder(plan) {
+  if (!selectedsymbol) {
+    showToast("Select a symbol first", "error");
+    return;
+  }
+
+  const payload = {
+    ACTION: plan.action,
+    SYMBOL: selectedsymbol,
+    QUANTITY: plan.quantity,
+    ORDERTYPE: plan.orderType,
+    PRICE: plan.price,
+    TRIGGERPRICE: plan.triggerPrice,
+    VALIDITY: "day",
+    TAG: "CHART_ORDER",
+    TIMESTAMP: Date.now()
+  };
+
+  try {
+    const data = await sendTradePayload(payload);
+
+    showToast(
+      `${plan.action} chart order ${data.STATUS || data.status || "sent"}`,
+      "success"
+    );
+
+    clearChartOrderPreview();
+
+    await loadUserData();
+    await fetchOrderBook();
+    plotOrderLines();
+  } catch (err) {
+    showToast(err.message || "Chart order failed", "error");
+  }
+}
+
 function getStoredWatchlist(){
   try{
     return JSON.parse(localStorage.getItem(watchlistStorageKey) || "[]")
@@ -714,6 +1234,7 @@ async function selectSymbol(symbol){
   plotOrderLines();
   plotPositionLines();
   plotFilledOrders();
+  syncPriceAlertLines();
   fillOrderForm(els.orderType.value)
 }
 function highlightSelectedSymbol(){
@@ -806,6 +1327,7 @@ async function getCandleData(){
 }
 function processTick(tick){
   allLTP[tick.SYMBOL] = Number(tick.LTP);
+  evaluatePriceAlerts(tick);
   updateHoldingsPnL(tick);
   if(tick.SYMBOL === selectedsymbol){
     currentLTP = Number(tick.LTP);
@@ -901,7 +1423,8 @@ async function fetchOrderBook(){
     applyFilterAndSort();
     plotFilledOrders();
     plotOrderLines();
-    plotPositionLines()
+    plotPositionLines();
+    syncPriceAlertLines();
   }
   catch(err){
     console.error(err);
@@ -921,6 +1444,7 @@ function setOrderSide(side){
 function submitSelectedOrder(){
   placeOrder(selectedOrderSide)
 }
+
 function getOrderCashRequirement(action, quantity, price) {
   const estimate = calculateOrderCost(action, quantity, price);
 
@@ -931,7 +1455,6 @@ function getOrderCashRequirement(action, quantity, price) {
   // For opening/adding short, your backend only debits charges.
   return estimate.totalCharges;
 }
-
 function getOrderExposureCost(action, quantity, price) {
   const estimate = calculateOrderCost(action, quantity, price);
 
@@ -939,7 +1462,6 @@ function getOrderExposureCost(action, quantity, price) {
   // This prevents a small budget from opening a huge short.
   return estimate.turnover + estimate.totalCharges;
 }
-
 function calculatePositionExitPnl(positionType, quantity, averagePrice, ltp) {
   const qty = Number(quantity || 0);
   const avg = Number(averagePrice || 0);
@@ -965,7 +1487,6 @@ function calculatePositionExitPnl(positionType, quantity, averagePrice, ltp) {
 
   return 0;
 }
-
 function calculateTradePnlFromEntryToExit(action, quantity, entryPrice, exitPrice) {
   action = String(action || "").toUpperCase();
 
@@ -1259,6 +1780,52 @@ function closeModifyDropdown(){
   currentOrderId = "";
   document.getElementById("modifyDropdown").classList.remove("visible")
 }
+function buildChartModifyPayload(item, newPrice) {
+  const order = item.order;
+
+  const currentPrice = getOrderNumberField(order, "PRICE", "Price", "price");
+  const currentTrigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
+
+  let nextPrice = currentPrice > 0 ? currentPrice : null;
+  let nextTrigger = currentTrigger > 0 ? currentTrigger : null;
+
+  if (item.kind === "trigger") {
+    nextTrigger = newPrice;
+  } else {
+    nextPrice = newPrice;
+  }
+
+  return {
+    ORDERID: item.orderId,
+    QUANTITY: getOrderNumberField(order, "QUANTITY", "Quantity", "quantity"),
+    PRICE: nextPrice,
+    TRIGGERPRICE: nextTrigger,
+    VALIDITY: getOrderStringField(order, "VALIDITY", "Validity", "validity") || "day",
+    TIMESTAMP: Date.now()
+  };
+}
+
+async function modifyOrderFromChartLine(item, newPrice) {
+  const payload = buildChartModifyPayload(item, newPrice);
+
+  const response = await apiFetch(`${base_url}/api/trade/modify-order`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await readResponseError(response));
+  }
+
+  const result = await response.json().catch(() => ({}));
+
+  showToast(result.MESSAGE || result.message || "Order modified from chart", "success");
+
+  await fetchOrderBook();
+}
 async function modifyOrder(){
   const payload = {
     ORDERID: currentOrderId, QUANTITY: parseInt(document.getElementById("modifyQty").value, 10), PRICE: document.getElementById("modifyPrice").value?parseFloat(document.getElementById("modifyPrice").value): null,
@@ -1439,25 +2006,326 @@ function getPendingOrders(){
 function getTriggerPendingOrders(){
   return allOrders.filter(o => String(o.STATUS).toLowerCase() === "triggerpending" && o.SYMBOL === selectedsymbol)
 }
-function plotOrderLines(){
-  pendingLines.forEach(line => candleSeries.removePriceLine(line));
-  triggerLines.forEach(line => candleSeries.removePriceLine(line));
+function removeOrderLineItems(items) {
+  items.forEach(item => {
+    const line = item.line || item;
+
+    try {
+      candleSeries.removePriceLine(line);
+    } catch {}
+  });
+}
+
+function getOrderNumberField(order, ...keys) {
+  for (const key of keys) {
+    const value = order?.[key];
+
+    if (value !== undefined && value !== null && value !== "") {
+      const n = Number(value);
+
+      if (Number.isFinite(n)) {
+        return n;
+      }
+    }
+  }
+
+  return 0;
+}
+
+function getOrderStringField(order, ...keys) {
+  for (const key of keys) {
+    const value = order?.[key];
+
+    if (value !== undefined && value !== null && value !== "") {
+      return String(value);
+    }
+  }
+
+  return "";
+}
+
+function getOrderId(order) {
+  return getOrderStringField(order, "ORDERID", "OrderId", "orderId");
+}
+
+function createOrderLineItem(order, kind) {
+  const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
+  const quantity = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
+
+  const price = kind === "trigger"
+    ? getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice")
+    : getOrderNumberField(order, "PRICE", "Price", "price");
+
+  if (!price || price <= 0) return null;
+
+  const isTrigger = kind === "trigger";
+
+  const color = isTrigger
+    ? "#b56cff"
+    : action === "BUY"
+      ? "#00c076"
+      : "#ff4d5a";
+
+  const title = isTrigger
+    ? `↕ Trigger ${action} ${quantity}`
+    : `↕ Pending ${action} ${quantity}`;
+
+  const line = candleSeries.createPriceLine({
+    price,
+    color,
+    lineStyle: LightweightCharts.LineStyle.Dashed,
+    lineWidth: 2,
+    axisLabelVisible: true,
+    title
+  });
+
+  return {
+    line,
+    order,
+    orderId: getOrderId(order),
+    kind,
+    price,
+    originalPrice: price
+  };
+}
+
+function plotOrderLines() {
+  removeOrderLineItems(pendingLines);
+  removeOrderLineItems(triggerLines);
+
   pendingLines = [];
   triggerLines = [];
-  getPendingOrders().forEach(o => {
-    const price = o.PRICE ?? o.TRIGGERPRICE; if(!price)return; pendingLines.push(candleSeries.createPriceLine({
-      price, color: "#f5c542", lineStyle: LightweightCharts.LineStyle.Dashed, lineWidth: 1, axisLabelVisible: true, title: `Pending ${o.ACTION} ${o.QUANTITY}`
+
+  getPendingOrders().forEach(order => {
+    const orderType = getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase();
+
+    if (orderType === "MARKET") return;
+
+    const price = getOrderNumberField(order, "PRICE", "Price", "price");
+    const trigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
+
+    let item = null;
+
+    if (price > 0) {
+      item = createOrderLineItem(order, "price");
+    } else if (trigger > 0) {
+      item = createOrderLineItem(order, "trigger");
     }
-))
-  }
-);
-  getTriggerPendingOrders().forEach(o => {
-    if(!o.TRIGGERPRICE)return; triggerLines.push(candleSeries.createPriceLine({
-      price: o.TRIGGERPRICE, color: "#b56cff", lineStyle: LightweightCharts.LineStyle.Dashed, lineWidth: 1, axisLabelVisible: true, title: `Trigger ${o.ACTION} ${o.QUANTITY}`
+
+    if (item) {
+      pendingLines.push(item);
     }
-))
+  });
+
+  getTriggerPendingOrders().forEach(order => {
+    const trigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
+
+    if (trigger <= 0) return;
+
+    const item = createOrderLineItem(order, "trigger");
+
+    if (item) {
+      triggerLines.push(item);
+    }
+  });
+}
+function getAllDraggableOrderLines() {
+  return [...pendingLines, ...triggerLines].filter(item =>
+    item &&
+    item.line &&
+    item.orderId &&
+    item.price > 0
+  );
+}
+
+function getChartMousePoint(event) {
+  const rect = els.chart.getBoundingClientRect();
+
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+}
+
+function findNearestOrderLineByY(y) {
+  let nearest = null;
+
+  getAllDraggableOrderLines().forEach(item => {
+    const coordinate = candleSeries.priceToCoordinate(item.price);
+
+    if (coordinate === null || coordinate === undefined) return;
+
+    const distance = Math.abs(coordinate - y);
+
+    if (distance <= ORDER_LINE_DRAG_TOLERANCE_PX) {
+      if (!nearest || distance < nearest.distance) {
+        nearest = {
+          item,
+          distance
+        };
+      }
+    }
+  });
+
+  return nearest?.item || null;
+}
+
+function setupDraggableOrderLines() {
+  if (orderLineDragBound || !els.chart) return;
+
+  orderLineDragBound = true;
+
+  els.chart.addEventListener("mousedown", startOrderLineDrag);
+  window.addEventListener("mousemove", moveOrderLineDrag);
+  window.addEventListener("mouseup", finishOrderLineDrag);
+
+  els.chart.addEventListener("mousemove", updateOrderLineHoverCursor);
+  els.chart.addEventListener("mouseleave", () => {
+    if (!activeOrderLineDrag) {
+      els.chart.classList.remove("orderLineHover");
+    }
+  });
+}
+
+function updateOrderLineHoverCursor(event) {
+  if (activeOrderLineDrag) return;
+  if (chartOrderMode || chartAlertMode) return;
+
+  const point = getChartMousePoint(event);
+  const lineItem = findNearestOrderLineByY(point.y);
+
+  els.chart.classList.toggle("orderLineHover", !!lineItem);
+}
+
+function startOrderLineDrag(event) {
+  if (chartOrderMode || chartAlertMode) return;
+  if (!selectedsymbol || !candleSeries) return;
+
+  const point = getChartMousePoint(event);
+  const lineItem = findNearestOrderLineByY(point.y);
+
+  if (!lineItem) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  activeOrderLineDrag = {
+    item: lineItem,
+    startY: point.y,
+    originalPrice: lineItem.price,
+    currentPrice: lineItem.price,
+    moved: false
+  };
+
+  els.chart.classList.add("draggingOrderLine");
+
+  try {
+    chart.applyOptions({
+      handleScroll: false,
+      handleScale: false
+    });
+  } catch {}
+
+  showToast("Drag order line to modify price", "info");
+}
+
+function moveOrderLineDrag(event) {
+  if (!activeOrderLineDrag) return;
+
+  event.preventDefault();
+
+  const point = getChartMousePoint(event);
+  const rawPrice = candleSeries.coordinateToPrice(point.y);
+
+  if (!rawPrice || rawPrice <= 0) return;
+
+  const nextPrice = roundToTick(rawPrice);
+
+  if (!nextPrice || nextPrice <= 0) return;
+
+  activeOrderLineDrag.currentPrice = nextPrice;
+  activeOrderLineDrag.moved =
+    Math.abs(point.y - activeOrderLineDrag.startY) > 2;
+
+  const item = activeOrderLineDrag.item;
+  item.price = nextPrice;
+
+  const title = buildDraggedOrderLineTitle(item, nextPrice);
+
+  item.line.applyOptions({
+    price: nextPrice,
+    title
+  });
+}
+
+async function finishOrderLineDrag(event) {
+  if (!activeOrderLineDrag) return;
+
+  event.preventDefault();
+
+  const drag = activeOrderLineDrag;
+  activeOrderLineDrag = null;
+
+  els.chart.classList.remove("draggingOrderLine");
+  els.chart.classList.remove("orderLineHover");
+
+  try {
+    chart.applyOptions({
+      handleScroll: true,
+      handleScale: true
+    });
+  } catch {}
+
+  const item = drag.item;
+  const oldPrice = drag.originalPrice;
+  const newPrice = drag.currentPrice;
+
+  if (!drag.moved || oldPrice === newPrice) {
+    item.price = oldPrice;
+    item.line.applyOptions({
+      price: oldPrice,
+      title: buildDraggedOrderLineTitle(item, oldPrice)
+    });
+    return;
   }
-)
+
+  const ok = confirm(
+    `Modify order?\n\n${selectedsymbol}\n${formatMoney(oldPrice)} → ${formatMoney(newPrice)}`
+  );
+
+  if (!ok) {
+    item.price = oldPrice;
+    item.line.applyOptions({
+      price: oldPrice,
+      title: buildDraggedOrderLineTitle(item, oldPrice)
+    });
+    return;
+  }
+
+  try {
+    await modifyOrderFromChartLine(item, newPrice);
+  } catch (err) {
+    item.price = oldPrice;
+    item.line.applyOptions({
+      price: oldPrice,
+      title: buildDraggedOrderLineTitle(item, oldPrice)
+    });
+
+    showToast(err.message || "Chart modify failed", "error");
+  }
+}
+
+function buildDraggedOrderLineTitle(item, price) {
+  const order = item.order;
+
+  const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
+  const qty = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
+
+  if (item.kind === "trigger") {
+    return `↕ Trigger ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  return `↕ Pending ${action} ${qty} @ ${fmtNum(price)}`;
 }
 function plotPositionLines(){
   avgPositionLines.forEach(line => candleSeries.removePriceLine(line));
@@ -1965,6 +2833,10 @@ function setupKeyboardShortcuts(){
         setChartFullscreen(false); 
         return;
       }
+      if (activeOrderLineDrag) {
+        cancelOrderLineDrag();
+        return;
+      }
       closeModifyDropdown(); 
       closeShortcutHelp(); 
       closePresetModal();
@@ -1973,6 +2845,16 @@ function setupKeyboardShortcuts(){
       return;
     }
     if(isTyping)return; 
+    if (e.altKey && key === "q") {
+      e.preventDefault();
+      toggleChartOrderMode();
+      return;
+    }
+    if (e.altKey && key === "a") {
+      e.preventDefault();
+      toggleChartAlertMode();
+      return;
+    }
     if(e.altKey && key === "d"){
       e.preventDefault(); 
       toggleCompactMode(); 
@@ -2118,6 +3000,35 @@ function calculateSMA(data, period){
     }
   }
 )
+}
+function cancelOrderLineDrag() {
+  if (!activeOrderLineDrag) return;
+
+  const drag = activeOrderLineDrag;
+  activeOrderLineDrag = null;
+
+  const item = drag.item;
+
+  item.price = drag.originalPrice;
+
+  try {
+    item.line.applyOptions({
+      price: drag.originalPrice,
+      title: buildDraggedOrderLineTitle(item, drag.originalPrice)
+    });
+  } catch {}
+
+  try {
+    chart.applyOptions({
+      handleScroll: true,
+      handleScale: true
+    });
+  } catch {}
+
+  els.chart.classList.remove("draggingOrderLine");
+  els.chart.classList.remove("orderLineHover");
+
+  showToast("Order line drag cancelled", "info");
 }
 async function resetChartView(){
   if(!selectedsymbol)return;

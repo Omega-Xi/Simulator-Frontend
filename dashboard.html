@@ -77,15 +77,9 @@
     <main class="panel chartPanel">
       <div class="symbolStrip">
         <div class="symbolMain"><span id="selectedSymbolTitle">Select a symbol</span><small id="selectedSymbolSub">Use
-            watchlist ↑ ↓ to navigate</small></div>
-        <div class="symbolStats">
-          <div><span>LTP</span><strong id="symbolLtp">₹--</strong></div>
-          <div><span>Position</span><strong id="symbolPosition">--</strong></div>
-          <div><span>P&L</span><strong id="symbolPnl">₹--</strong></div>
+            watchlist ↑ ↓ to navigate</small>
         </div>
-      </div>
-      <div id="chartLegend" class="chartLegend"></div>
-      <div id="chartControls" class="chartControls">
+        <div id="chartControls" class="chartControls">
         <div id="timeframeSelector" class="segmented">
           <button data-tf="1" class="active">1m</button><button data-tf="5">5m</button><button
             data-tf="15">15m</button><button data-tf="30">30m</button><button data-tf="60">1h</button>
@@ -93,9 +87,19 @@
         <div id="indicatorSelector" class="segmented">
           <button id="toggleSMA" class="active">SMA</button>
           <button id="toggleFilledOrders" title="Filled orders"><i class="fa-solid fa-exchange-alt"></i></button>
+          <button id="toggleChartOrderMode" title="Place order from chart"><i class="fa-solid fa-crosshairs"></i></button>
           <button id="toggleFullscreenChart" title="Fullscreen chart"><i class="fa-solid fa-expand"></i></button>
+          <button id="toggleChartAlertMode" title="Set price alert on chart"><i class="fa-solid fa-bell"></i></button>
         </div>
       </div>
+        <div class="symbolStats">
+          <div><span>LTP</span><strong id="symbolLtp">₹--</strong></div>
+          <div><span>Position</span><strong id="symbolPosition">--</strong></div>
+          <div><span>P&L</span><strong id="symbolPnl">₹--</strong></div>
+        </div>
+      </div>
+      <div id="chartLegend" class="chartLegend"></div>
+      
       <div id="chartTooltip" class="chartTooltip"></div>
       <div id="chart"></div>
     </main>
@@ -209,6 +213,8 @@
         <div><kbd>Alt</kbd> + <kbd>↑</kbd><span>Increase lots</span></div>
         <div><kbd>Alt</kbd> + <kbd>↓</kbd><span>Decrease lots</span></div>
         <div><kbd>1</kbd>-<kbd>5</kbd><span>Change timeframe</span></div>
+        <div><kbd>Alt</kbd> + <kbd>A</kbd><span>Chart alert mode</span></div>
+        <div><kbd>Alt</kbd> + <kbd>Q</kbd><span>Chart order mode</span></div>
         <div><kbd>X</kbd><span>Square off selected</span></div>
         <div><kbd>Shift</kbd> + <kbd>X</kbd><span>Exit all positions</span></div>
         <div><kbd>+</kbd><span>Zoom chart in</span></div>
