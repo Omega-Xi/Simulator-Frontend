@@ -1,1 +1,198 @@
 .app-layout{display:grid;gap:16px}.summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}.position-card,.order-card{border:1px solid var(--border);background:rgba(255,255,255,.025);padding:14px;display:grid;gap:8px}.position-card.long{border-left:3px solid var(--green)}.position-card.short{border-left:3px solid var(--red)}.position-head,.order-head{display:flex;justify-content:space-between;gap:10px;align-items:center}.symbol{font-weight:900}.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.filters .input,.filters .select{max-width:220px}.danger-zone{border-color:rgba(255,77,90,.25);background:rgba(255,77,90,.04)}@media(max-width:900px){.summary-grid{grid-template-columns:1fr}.filters .input,.filters .select{max-width:none}}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(10px);
+}
+
+.modalOverlay.hidden {
+  display: none !important;
+}
+
+.modalCard {
+  width: min(560px, calc(100vw - 28px));
+  max-height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 16px;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    rgba(17, 22, 29, 0.98),
+    rgba(10, 14, 20, 0.98)
+  );
+  border: 1px solid var(--border-soft);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.6);
+  color: var(--text-main);
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+
+.modalHeader h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-main);
+}
+
+.modalHeader p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.iconBtn {
+  height: 34px;
+  width: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+}
+
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.softBtn,
+.primaryBtn,
+.dangerSoftBtn {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 11px;
+  border: 1px solid var(--border-soft);
+  font-weight: 800;
+}
+
+.softBtn {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+}
+
+.primaryBtn {
+  background: var(--brand-soft);
+  border-color: rgba(201, 169, 110, 0.36);
+  color: var(--brand-light);
+}
+
+.dangerSoftBtn {
+  background: rgba(255, 77, 90, 0.12);
+  border-color: rgba(255, 77, 90, 0.28);
+  color: var(--sell);
+}
+
+.primaryBtn:hover,
+.softBtn:hover,
+.dangerSoftBtn:hover {
+  filter: brightness(1.12);
+}
+
+.primaryBtn:disabled,
+.softBtn:disabled,
+.dangerSoftBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fundsModalCard {
+  width: min(460px, calc(100vw - 28px));
+}
+
+.modalField {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.modalField span {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
+}
+
+.modalField input {
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid var(--border-soft);
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--text-main);
+  padding: 0 12px;
+  outline: none;
+}
+
+.modalField input:focus {
+  border-color: rgba(201, 169, 110, 0.48);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.quickAmountGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.quickAmountGrid button {
+  height: 38px;
+  border-radius: 11px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+  font-weight: 800;
+}
+
+.quickAmountGrid button:hover {
+  background: var(--brand-soft);
+  color: var(--brand-light);
+  border-color: rgba(201, 169, 110, 0.35);
+}
+
+.dangerNotice {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 77, 90, 0.12);
+  border: 1px solid rgba(255, 77, 90, 0.25);
+  color: var(--sell);
+}
+
+.dangerNotice i {
+  margin-top: 2px;
+}
+
+.dangerNotice strong {
+  display: block;
+  color: var(--sell);
+  font-size: 13px;
+}
+
+.dangerNotice span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
