@@ -27,6 +27,8 @@ let orderLineDragBound = false;
 let chartOrderMode = false;
 let chartOrderPreviewLine = null;
 let chartOrderPopup = null;
+let hoveredOrderLineItem = null;
+let orderLineCancelPopup = null;
 let alertAudioContext = null;
 let alertMasterGain = null;
 let priceAlerts = [];
@@ -2108,20 +2110,34 @@ function applyFilterAndSort() {
   }
   renderOrderBook(filtered)
 }
-async function cancelOrder(orderId) {
+async function cancelOrder(orderId, { refresh = true, silent = false } = {}) {
   if (!orderId) return;
+
   try {
     const res = await apiFetch(`${base_url}/api/trade/cancel-order/${encodeURIComponent(orderId)}`, {
       method: "DELETE"
-    }
-    );
+    });
+
     if (!res.ok) throw new Error(await readResponseError(res));
+
     const result = await res.json().catch(() => ({}));
-    showToast(result.MESSAGE || "Order cancelled", "success");
-    await fetchOrderBook()
+
+    if (!silent) {
+      showToast(result.MESSAGE || "Order cancelled", "success");
+    }
+
+    if (refresh) {
+      await fetchOrderBook();
+    }
+
+    return result;
   }
   catch (err) {
-    showToast(err.message || "Cancel failed", "error")
+    if (!silent) {
+      showToast(err.message || "Cancel failed", "error");
+    } else {
+      throw err;
+    }
   }
 }
 function openModifyDropdown(order) {
@@ -2540,19 +2556,170 @@ function setupDraggableOrderLines() {
   window.addEventListener("mouseup", finishOrderLineDrag);
 
   els.chart.addEventListener("mousemove", updateOrderLineHoverCursor);
+
+  els.chart.addEventListener("contextmenu", openOrderLineCancelPopup);
+
+  document.addEventListener("click", event => {
+    if (orderLineCancelPopup && !orderLineCancelPopup.contains(event.target)) {
+      closeOrderLineCancelPopup();
+    }
+  });
+
   els.chart.addEventListener("mouseleave", () => {
     if (!activeOrderLineDrag) {
+      hoveredOrderLineItem = null;
       els.chart.classList.remove("orderLineHover");
     }
   });
 }
 
+function isCancellableOrder(order) {
+  const status = String(order?.STATUS || "").toLowerCase();
+  return status === "pending" || status === "triggerpending";
+}
+
+function describeOrder(order) {
+  const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
+  const symbol = getOrderStringField(order, "SYMBOL", "Symbol", "symbol");
+  const qty = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
+
+  const price =
+    getOrderNumberField(order, "PRICE", "Price", "price") ||
+    getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
+
+  return `${action} ${symbol} · Qty ${qty} · ${price ? formatMoney(price) : "Market"}`;
+}
+
+function closeOrderLineCancelPopup() {
+  if (orderLineCancelPopup) {
+    orderLineCancelPopup.remove();
+    orderLineCancelPopup = null;
+  }
+}
+
+function openOrderLineCancelPopup(event) {
+  if (chartOrderMode || chartAlertMode) return;
+  if (!selectedsymbol || !candleSeries) return;
+
+  const point = getChartMousePoint(event);
+  const item = findNearestOrderLineByY(point.y);
+
+  if (!item || !item.orderId) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  showOrderLineCancelPopup(item, point.x, point.y);
+}
+
+function showOrderLineCancelPopup(item, x, y) {
+  closeOrderLineCancelPopup();
+
+  const popup = document.createElement("div");
+  popup.className = "orderLineCancelPopup";
+
+  popup.innerHTML = `
+    <div class="cancelPopupTitle">Order action</div>
+    <div class="cancelPopupDesc">${describeOrder(item.order)}</div>
+    <div class="cancelPopupActions">
+      <button type="button" class="softBtn" data-modify-order>Modify</button>
+      <button type="button" class="dangerSoftBtn" data-cancel-order>Cancel</button>
+    </div>
+  `;
+
+  popup.addEventListener("click", e => e.stopPropagation());
+
+  els.chart.appendChild(popup);
+
+  const left = Math.min(Math.max(x + 10, 8), els.chart.clientWidth - popup.offsetWidth - 8);
+  const top = Math.min(Math.max(y + 10, 8), els.chart.clientHeight - popup.offsetHeight - 8);
+
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+
+  popup.querySelector("[data-modify-order]").onclick = () => {
+    closeOrderLineCancelPopup();
+    openModifyDropdown(item.order);
+  };
+
+  popup.querySelector("[data-cancel-order]").onclick = async () => {
+    closeOrderLineCancelPopup();
+    await cancelOrder(item.orderId);
+  };
+}
+
+async function cancelHoveredOrderLine() {
+  const item = hoveredOrderLineItem;
+
+  if (!item || !item.orderId) {
+    showToast("Hover a pending order line, then press C", "info");
+    return;
+  }
+
+  const ok = confirm(`Cancel this order?\n\n${describeOrder(item.order)}`);
+  if (!ok) return;
+
+  await cancelOrder(item.orderId);
+}
+
+function getCancellableOrdersForSelectedSymbol() {
+  if (!selectedsymbol) return [];
+
+  return allOrders.filter(order =>
+    String(order.SYMBOL || "") === selectedsymbol &&
+    isCancellableOrder(order) &&
+    getOrderId(order)
+  );
+}
+
+async function cancelAllPendingForSelectedSymbol() {
+  const orders = getCancellableOrdersForSelectedSymbol();
+
+  if (!orders.length) {
+    showToast(`No pending orders for ${selectedsymbol || "selected symbol"}`, "info");
+    return;
+  }
+
+  const ok = confirm(`Cancel ${orders.length} pending order(s) for ${selectedsymbol}?`);
+  if (!ok) return;
+
+  let success = 0;
+  let failed = 0;
+
+  for (const order of orders) {
+    try {
+      await cancelOrder(getOrderId(order), {
+        refresh: false,
+        silent: true
+      });
+      success++;
+    } catch {
+      failed++;
+    }
+  }
+
+  await fetchOrderBook();
+
+  showToast(
+    failed
+      ? `${success} cancelled, ${failed} failed`
+      : `${success} pending order(s) cancelled`,
+    failed ? "error" : "success"
+  );
+}
 function updateOrderLineHoverCursor(event) {
   if (activeOrderLineDrag) return;
-  if (chartOrderMode || chartAlertMode) return;
+
+  if (chartOrderMode || chartAlertMode) {
+    hoveredOrderLineItem = null;
+    els.chart.classList.remove("orderLineHover");
+    return;
+  }
 
   const point = getChartMousePoint(event);
   const lineItem = findNearestOrderLineByY(point.y);
+
+  hoveredOrderLineItem = lineItem;
 
   els.chart.classList.toggle("orderLineHover", !!lineItem);
 }
@@ -3205,6 +3372,17 @@ function setupKeyboardShortcuts() {
       return;
     }
     if (isTyping) return;
+    if (e.shiftKey && key === "c") {
+      e.preventDefault();
+      cancelAllPendingForSelectedSymbol();
+      return;
+    }
+
+    if (key === "c") {
+      e.preventDefault();
+      cancelHoveredOrderLine();
+      return;
+    }
     if (e.altKey && key === "q") {
       e.preventDefault();
       toggleChartOrderMode();
@@ -3619,7 +3797,7 @@ function updateSelectedSymbolSummary() {
     return
   }
   title.textContent = selectedsymbol;
-  sub.textContent = `Timeframe ${selectedtimeframe}m · Charges estimated`;
+  sub.textContent = `Timeframe ${selectedtimeframe}m`;
   const ltp = allLTP[selectedsymbol] || currentLTP;
   ltpEl.textContent = ltp ? formatMoney(ltp) : "₹--";
   const h = getActiveHoldings();

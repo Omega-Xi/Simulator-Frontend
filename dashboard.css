@@ -253,6 +253,50 @@ body.chartFullscreen .chartControls {
   backdrop-filter: blur(10px);
 }
 
+.orderLineCancelPopup {
+  position: absolute;
+  z-index: 80;
+  width: 230px;
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(9, 11, 15, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px);
+}
+
+.cancelPopupTitle {
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.cancelPopupDesc {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.cancelPopupActions {
+  display: flex;
+  gap: 8px;
+}
+
+.cancelPopupActions button {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 8px 10px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 body.compactMode .appShell {
   grid-template-columns: 250px minmax(0, 1fr) 320px;
   grid-template-rows: 60px minmax(0, 1fr) 190px;
