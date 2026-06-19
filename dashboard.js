@@ -2112,7 +2112,9 @@ function applyFilterAndSort() {
 }
 async function cancelOrder(orderId, { refresh = true, silent = false } = {}) {
   if (!orderId) return;
-
+  closeOrderLineCancelPopup?.();
+  hoveredOrderLineItem = null;
+  els.chart?.classList.remove("orderLineHover");
   try {
     const res = await apiFetch(`${base_url}/api/trade/cancel-order/${encodeURIComponent(orderId)}`, {
       method: "DELETE"
@@ -2129,6 +2131,9 @@ async function cancelOrder(orderId, { refresh = true, silent = false } = {}) {
     if (refresh) {
       await fetchOrderBook();
     }
+    closeOrderLineCancelPopup?.();
+    hoveredOrderLineItem = null;
+    els.chart?.classList.remove("orderLineHover");
 
     return result;
   }
@@ -2591,10 +2596,11 @@ function describeOrder(order) {
 }
 
 function closeOrderLineCancelPopup() {
-  if (orderLineCancelPopup) {
-    orderLineCancelPopup.remove();
-    orderLineCancelPopup = null;
-  }
+  document.querySelectorAll(".orderLineCancelPopup").forEach(popup => {
+    popup.remove();
+  });
+
+  orderLineCancelPopup = null;
 }
 
 function openOrderLineCancelPopup(event) {
@@ -2618,6 +2624,7 @@ function showOrderLineCancelPopup(item, x, y) {
   const popup = document.createElement("div");
   popup.className = "orderLineCancelPopup";
 
+  orderLineCancelPopup = popup;
   popup.innerHTML = `
     <div class="cancelPopupTitle">Order action</div>
     <div class="cancelPopupDesc">${describeOrder(item.order)}</div>
