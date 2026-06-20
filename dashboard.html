@@ -227,6 +227,7 @@
           <select id="orderProduct">
             <option value="regular">Regular</option>
             <option value="cover">Cover</option>
+            <option value="bracket">Bracket</option>
           </select>
         </label>
 
@@ -253,6 +254,11 @@
         <label>
           <span id="triggerPriceLabel">Trigger Price</span>
           <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05" disabled />
+        </label>
+
+        <label id="targetPriceField" class="targetPriceField hidden">
+          <span id="targetPriceLabel">Target Price</span>
+          <input type="number" id="targetPrice" placeholder="Target price" step="0.05" disabled />
         </label>
       </div>
 

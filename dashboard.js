@@ -120,6 +120,9 @@ function cacheDom() {
     "orderTypeLabel",
     "limitPriceLabel",
     "triggerPriceLabel",
+    "targetPriceField",
+    "targetPriceLabel",
+    "targetPrice",
     "coverOrderHelp",
     "limitPrice",
     "triggerPrice",
@@ -226,11 +229,15 @@ function setupEventHandlers() {
   [
     els.orderLot,
     els.limitPrice,
-    els.triggerPrice
-  ].forEach(x => x.addEventListener("input", () => updateEstimatedAmount({
-    LTP: currentLTP
-  }
-  )));
+    els.triggerPrice,
+    els.targetPrice
+  ].forEach(x => {
+    if (!x) return;
+
+    x.addEventListener("input", () => updateEstimatedAmount({
+      LTP: currentLTP
+    }));
+  });
   if (els.orderProduct) {
     els.orderProduct.onchange = () => {
       syncOrderProductUi(true);
@@ -1811,7 +1818,7 @@ function setOrderSide(side) {
   els.buyBtn.classList.toggle("active-side", side === "BUY");
   els.sellBtn.classList.toggle("active-side", side === "SELL");
   document.querySelector(".orderTicket").dataset.side = side.toLowerCase();
-  if (getOrderProduct() === "cover") {
+  if (isStrategyOrderMode()) {
     fillOrderForm(els.orderType.value, true);
   }
   updateEstimatedAmount({
@@ -1819,8 +1826,15 @@ function setOrderSide(side) {
   });
 }
 function submitSelectedOrder() {
-  if (getOrderProduct() === "cover") {
+  const product = getOrderProduct();
+
+  if (product === "cover") {
     placeCoverOrder(selectedOrderSide);
+    return;
+  }
+
+  if (product === "bracket") {
+    placeBracketOrder(selectedOrderSide);
     return;
   }
 
@@ -1901,31 +1915,54 @@ function getOrderProduct() {
 function isCoverOrderMode() {
   return getOrderProduct() === "cover";
 }
+function isBracketOrderMode() {
+  return getOrderProduct() === "bracket";
+}
+function isStrategyOrderMode() {
+  return isCoverOrderMode() || isBracketOrderMode();
+}
 function syncOrderProductUi(resetPrices = false) {
-  const isCover = isCoverOrderMode();
+  const product = getOrderProduct();
+  const isCover = product === "cover";
+  const isBracket = product === "bracket";
+  const isStrategy = isCover || isBracket;
 
-  document.querySelector(".orderTicket")?.classList.toggle("coverMode", isCover);
+  const ticket = document.querySelector(".orderTicket");
+
+  ticket?.classList.toggle("coverMode", isCover);
+  ticket?.classList.toggle("bracketMode", isBracket);
 
   if (els.ticketMeta) {
-    els.ticketMeta.textContent = isCover
-      ? "Cover order · entry + mandatory stop-loss"
-      : "Charges estimated · Short selling enabled";
+    els.ticketMeta.textContent = isBracket
+      ? "Bracket order · entry + stop-loss + target"
+      : isCover
+        ? "Cover order · entry + mandatory stop-loss"
+        : "Charges estimated · Short selling enabled";
   }
 
   if (els.orderTypeLabel) {
-    els.orderTypeLabel.textContent = isCover ? "Entry Type" : "Order Type";
+    els.orderTypeLabel.textContent = isStrategy ? "Entry Type" : "Order Type";
   }
 
   if (els.limitPriceLabel) {
-    els.limitPriceLabel.textContent = isCover ? "Entry Price" : "Limit Price";
+    els.limitPriceLabel.textContent = isStrategy ? "Entry Price" : "Limit Price";
   }
 
   if (els.triggerPriceLabel) {
-    els.triggerPriceLabel.textContent = isCover ? "Stop-loss Trigger" : "Trigger Price";
+    els.triggerPriceLabel.textContent = isStrategy ? "Stop-loss Trigger" : "Trigger Price";
+  }
+
+  if (els.targetPriceField) {
+    els.targetPriceField.classList.toggle("hidden", !isBracket);
+  }
+
+  if (els.targetPrice) {
+    els.targetPrice.disabled = !isBracket;
+    if (!isBracket) els.targetPrice.value = "";
   }
 
   if (els.coverOrderHelp) {
-    els.coverOrderHelp.classList.toggle("hidden", !isCover);
+    els.coverOrderHelp.classList.add("hidden");
   }
 
   const stopOptions = els.orderType?.querySelectorAll(
@@ -1933,11 +1970,11 @@ function syncOrderProductUi(resetPrices = false) {
   );
 
   stopOptions?.forEach(option => {
-    option.hidden = isCover;
-    option.disabled = isCover;
+    option.hidden = isStrategy;
+    option.disabled = isStrategy;
   });
 
-  if (isCover && !["market", "limit"].includes(els.orderType.value)) {
+  if (isStrategy && !["market", "limit"].includes(els.orderType.value)) {
     els.orderType.value = "market";
   }
 
@@ -1947,7 +1984,7 @@ function syncOrderProductUi(resetPrices = false) {
     LTP: currentLTP
   });
 }
-function getCoverEntryPrice() {
+function getStrategyEntryPrice() {
   const entryType = els.orderType.value;
   const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
   const limit = parseFloat(els.limitPrice.value) || 0;
@@ -1958,7 +1995,10 @@ function getCoverEntryPrice() {
 
   return ltp;
 }
-function getDefaultCoverStopLoss(action, entryPrice) {
+function getCoverEntryPrice() {
+  return getStrategyEntryPrice();
+}
+function getDefaultStrategyStopLoss(action, entryPrice) {
   const price = Number(entryPrice || 0);
 
   if (!price || price <= 0) return "";
@@ -1970,6 +2010,24 @@ function getDefaultCoverStopLoss(action, entryPrice) {
   }
 
   return roundToTick(price + distance).toFixed(2);
+}
+function getDefaultCoverStopLoss(action, entryPrice) {
+  return getDefaultStrategyStopLoss(action, entryPrice);
+}
+function getDefaultBracketTarget(action, entryPrice, stopLossPrice) {
+  const entry = Number(entryPrice || 0);
+  const stop = Number(stopLossPrice || 0);
+
+  if (!entry || entry <= 0 || !stop || stop <= 0) return "";
+
+  const riskDistance = Math.abs(entry - stop);
+  const rewardDistance = riskDistance * 2;
+
+  if (action === "BUY") {
+    return roundToTick(entry + rewardDistance).toFixed(2);
+  }
+
+  return roundToTick(entry - rewardDistance).toFixed(2);
 }
 function validateCoverOrderInput(action, quantity, entryType, entryPrice, stopLossTriggerPrice) {
   if (!selectedsymbol) {
@@ -2006,6 +2064,72 @@ function validateCoverOrderInput(action, quantity, entryType, entryPrice, stopLo
 
   if (action === "SELL" && stopLossTriggerPrice <= referencePrice) {
     return "For a SELL cover order, stop-loss trigger must be above entry price.";
+  }
+
+  return "";
+}
+function validateBracketOrderInput(
+  action,
+  quantity,
+  entryType,
+  entryPrice,
+  stopLossTriggerPrice,
+  targetPrice
+) {
+  if (!selectedsymbol) {
+    return "Select a symbol before placing a bracket order.";
+  }
+
+  if (quantity <= 0) {
+    return "Enter a valid quantity.";
+  }
+
+  if (entryType !== "MARKET" && entryType !== "LIMIT") {
+    return "Bracket orders support only MARKET or LIMIT entry.";
+  }
+
+  if (entryType === "LIMIT" && (!entryPrice || entryPrice <= 0)) {
+    return "Enter a valid bracket entry price.";
+  }
+
+  if (!stopLossTriggerPrice || stopLossTriggerPrice <= 0) {
+    return "Enter a valid stop-loss trigger price.";
+  }
+
+  if (!targetPrice || targetPrice <= 0) {
+    return "Enter a valid target price.";
+  }
+
+  const referencePrice = entryType === "LIMIT"
+    ? entryPrice
+    : Number(currentLTP || allLTP[selectedsymbol] || 0);
+
+  if (!referencePrice || referencePrice <= 0) {
+    return "Live price unavailable for bracket order.";
+  }
+
+  if (action === "BUY") {
+    if (stopLossTriggerPrice >= referencePrice) {
+      return "For a BUY bracket order, stop-loss must be below entry price.";
+    }
+
+    if (targetPrice <= referencePrice) {
+      return "For a BUY bracket order, target must be above entry price.";
+    }
+  }
+
+  if (action === "SELL") {
+    if (stopLossTriggerPrice <= referencePrice) {
+      return "For a SELL bracket order, stop-loss must be above entry price.";
+    }
+
+    if (targetPrice >= referencePrice) {
+      return "For a SELL bracket order, target must be below entry price.";
+    }
+  }
+
+  if (stopLossTriggerPrice === targetPrice) {
+    return "Stop-loss and target cannot be the same price.";
   }
 
   return "";
@@ -2157,6 +2281,106 @@ async function placeCoverOrder(action) {
     showToast(err.message || "Cover order failed", "error");
   }
 }
+async function placeBracketOrder(action) {
+  if (!selectedsymbol) {
+    showToast("Select a symbol before placing a bracket order", "error");
+    return;
+  }
+
+  const lots = parseInt(els.orderLot.value, 10);
+
+  if (isNaN(lots) || lots <= 0) {
+    showToast("Enter a valid lot count", "error");
+    return;
+  }
+
+  const quantity = lots * (currentLotSize || 1);
+  const entryType = String(els.orderType.value || "").toUpperCase();
+
+  const entryPrice = entryType === "LIMIT"
+    ? parseFloat(els.limitPrice.value) || 0
+    : null;
+
+  const stopLossTriggerPrice = parseFloat(els.triggerPrice.value) || 0;
+  const targetPrice = parseFloat(els.targetPrice?.value) || 0;
+
+  const validationError = validateBracketOrderInput(
+    action,
+    quantity,
+    entryType,
+    entryPrice,
+    stopLossTriggerPrice,
+    targetPrice
+  );
+
+  if (validationError) {
+    showToast(validationError, "error");
+    return;
+  }
+
+  const payload = {
+    Action: action,
+    Symbol: selectedsymbol,
+    Quantity: quantity,
+    EntryType: entryType,
+    EntryPrice: entryType === "LIMIT" ? entryPrice : null,
+    StopLossTriggerPrice: stopLossTriggerPrice,
+    TargetPrice: targetPrice,
+    Validity: "DAY",
+    TimeStamp: Date.now()
+  };
+
+  const entryLabel = entryType === "LIMIT"
+    ? `${entryType} ${formatMoney(entryPrice)}`
+    : entryType;
+
+  const ok = confirm(
+    `Place bracket order?\n\n` +
+    `${action} ${selectedsymbol}\n` +
+    `Qty: ${quantity.toLocaleString("en-IN")}\n` +
+    `Entry: ${entryLabel}\n` +
+    `Stop-loss: ${formatMoney(stopLossTriggerPrice)}\n` +
+    `Target: ${formatMoney(targetPrice)}`
+  );
+
+  if (!ok) return;
+
+  try {
+    const res = await apiFetch(`${base_url}/api/trade/place-bracket-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data.MESSAGE ||
+        data.Message ||
+        data.message ||
+        data.ERROR ||
+        data.Error ||
+        data.error ||
+        (data.ERRORS || data.Errors || []).join(", ") ||
+        "Bracket order failed"
+      );
+    }
+
+    showToast(data.MESSAGE || data.Message || "Bracket order placed", "success");
+
+    await loadUserData();
+    await fetchOrderBook();
+
+    clearOrderForm(false);
+  }
+  catch (err) {
+    console.error("Error placing bracket order:", err);
+    showToast(err.message || "Bracket order failed", "error");
+  }
+}
 function getOrderEstimateValue() {
   const lots = parseInt(els.orderLot.value, 10) || 0;
   const quantity = lots * (currentLotSize || 0);
@@ -2199,13 +2423,12 @@ function clearOrderForm(resetSide = false) {
   els.limitPrice.value = "";
   els.triggerPrice.value = "";
 
-  if (isCoverOrderMode()) {
-    els.orderType.value = "market";
-    fillOrderForm("market", true);
-  } else {
-    els.orderType.value = "market";
-    fillOrderForm("market", true);
+  if (els.targetPrice) {
+    els.targetPrice.value = "";
   }
+
+  els.orderType.value = "market";
+  fillOrderForm("market", true);
 
   updateEstimatedAmount({
     LTP: currentLTP
@@ -2218,12 +2441,17 @@ function fillOrderForm(orderType, resetPrices = false) {
     currentLTP = Number(allLTP[selectedsymbol]);
   }
 
-  const isCover = isCoverOrderMode();
+  const isStrategy = isStrategyOrderMode();
+  const isBracket = isBracketOrderMode();
 
   els.limitPrice.disabled = true;
   els.triggerPrice.disabled = true;
 
-  if (isCover) {
+  if (els.targetPrice) {
+    els.targetPrice.disabled = !isBracket;
+  }
+
+  if (isStrategy) {
     const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
 
     if (orderType === "limit") {
@@ -2238,13 +2466,29 @@ function fillOrderForm(orderType, resetPrices = false) {
 
     els.triggerPrice.disabled = false;
 
-    const entryPrice = getCoverEntryPrice();
+    const entryPrice = getStrategyEntryPrice();
 
     if (resetPrices || !els.triggerPrice.value) {
-      els.triggerPrice.value = getDefaultCoverStopLoss(selectedOrderSide, entryPrice);
+      els.triggerPrice.value = getDefaultStrategyStopLoss(selectedOrderSide, entryPrice);
+    }
+
+    if (isBracket && els.targetPrice) {
+      const stopLossPrice = parseFloat(els.triggerPrice.value) || 0;
+
+      if (resetPrices || !els.targetPrice.value) {
+        els.targetPrice.value = getDefaultBracketTarget(
+          selectedOrderSide,
+          entryPrice,
+          stopLossPrice
+        );
+      }
     }
 
     return;
+  }
+
+  if (els.targetPrice) {
+    els.targetPrice.value = "";
   }
 
   if (orderType === "limit") {
@@ -2271,6 +2515,10 @@ function fillOrderForm(orderType, resetPrices = false) {
 function updateEstimatedAmount(tick) {
   if (isCoverOrderMode()) {
     updateCoverEstimatedAmount(tick);
+    return;
+  }
+  if (isBracketOrderMode()) {
+    updateBracketEstimatedAmount(tick);
     return;
   }
   if (!selectedsymbol) {
@@ -2417,6 +2665,92 @@ function updateCoverEstimatedAmount(tick) {
     </span>
   `;
 }
+function updateBracketEstimatedAmount(tick) {
+  if (!selectedsymbol) {
+    els.estimateBox.innerHTML = '<div class="emptyMini">Select symbol and quantity to see estimate</div>';
+    return;
+  }
+
+  const lots = parseInt(els.orderLot.value, 10) || 0;
+  const qty = lots * (currentLotSize || 0);
+
+  const entryPrice =
+    getStrategyEntryPrice() ||
+    Number(tick?.LTP || currentLTP || 0);
+
+  const stopPrice = parseFloat(els.triggerPrice.value) || 0;
+  const targetPrice = parseFloat(els.targetPrice?.value) || 0;
+
+  if (qty <= 0 || entryPrice <= 0) {
+    els.estimateBox.innerHTML = '<div class="emptyMini">Enter quantity and entry price</div>';
+    return;
+  }
+
+  const required = getOrderCashRequirement(selectedOrderSide, qty, entryPrice);
+
+  let estimatedRisk = 0;
+  let estimatedReward = 0;
+  let riskClass = "ok";
+
+  if (stopPrice > 0) {
+    const pnlAtStop = calculateTradePnlFromEntryToExit(
+      selectedOrderSide,
+      qty,
+      entryPrice,
+      stopPrice
+    );
+
+    estimatedRisk = Math.abs(Math.min(0, pnlAtStop));
+  }
+
+  if (targetPrice > 0) {
+    const pnlAtTarget = calculateTradePnlFromEntryToExit(
+      selectedOrderSide,
+      qty,
+      entryPrice,
+      targetPrice
+    );
+
+    estimatedReward = Math.max(0, pnlAtTarget);
+  }
+
+  const validation = validateBracketOrderInput(
+    selectedOrderSide,
+    qty,
+    String(els.orderType.value || "").toUpperCase(),
+    els.orderType.value === "limit" ? entryPrice : null,
+    stopPrice,
+    targetPrice
+  );
+
+  riskClass = validation ? "danger" : "ok";
+
+  els.estimateBox.innerHTML = `
+    <span class="estItem brand">
+      <b>Qty</b>${qty.toLocaleString("en-IN")}
+    </span>
+
+    <span class="estItem">
+      <b>Entry</b>${formatMoney(entryPrice)}
+    </span>
+
+    <span class="estItem ${riskClass}">
+      <b>Stop</b>${stopPrice ? formatMoney(stopPrice) : "₹--"}
+    </span>
+
+    <span class="estItem ${riskClass}">
+      <b>Target</b>${targetPrice ? formatMoney(targetPrice) : "₹--"}
+    </span>
+
+    <span class="estItem ${riskClass}">
+      <b>Risk / Reward</b>${estimatedRisk ? formatMoney(estimatedRisk) : "₹--"} / ${estimatedReward ? formatMoney(estimatedReward) : "₹--"}
+    </span>
+
+    <span class="estItem">
+      <b>Required</b>${formatMoney(required)}
+    </span>
+  `;
+}
 function renderOrderBook(orders) {
   const container = document.querySelector(".orderBookContainer");
   container.innerHTML = "";
@@ -2462,9 +2796,9 @@ function renderOrderBook(orders) {
       c.onclick = () => {
         const purpose = getOrderStringField(order, "PURPOSE", "Purpose", "purpose");
 
-        if (purpose === "COVER_CHILD") {
+        if ( purpose === "COVER_CHILD" || purpose === "BRACKET_STOP" || purpose === "BRACKET_TARGET" ) {
           const ok = confirm(
-            "Cancel cover stop-loss?\n\nYour position may remain open without protection."
+            "Cancel strategy child order?\n\nYour position may remain open without full protection."
           );
 
           if (!ok) return;
@@ -2573,7 +2907,6 @@ function buildChartModifyPayload(item, newPrice) {
     TIMESTAMP: Date.now()
   };
 }
-
 async function modifyOrderFromChartLine(item, newPrice) {
   const payload = buildChartModifyPayload(item, newPrice);
 
@@ -2784,7 +3117,6 @@ function removeOrderLineItems(items) {
     } catch { }
   });
 }
-
 function getOrderNumberField(order, ...keys) {
   for (const key of keys) {
     const value = order?.[key];
@@ -2800,7 +3132,6 @@ function getOrderNumberField(order, ...keys) {
 
   return 0;
 }
-
 function getOrderStringField(order, ...keys) {
   for (const key of keys) {
     const value = order?.[key];
@@ -2812,11 +3143,9 @@ function getOrderStringField(order, ...keys) {
 
   return "";
 }
-
 function getOrderId(order) {
   return getOrderStringField(order, "ORDERID", "OrderId", "orderId");
 }
-
 function createOrderLineItem(order, kind) {
   const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
   const quantity = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
@@ -2857,7 +3186,6 @@ function createOrderLineItem(order, kind) {
     originalPrice: price
   };
 }
-
 function plotOrderLines() {
   removeOrderLineItems(pendingLines);
   removeOrderLineItems(triggerLines);
@@ -2906,7 +3234,6 @@ function getAllDraggableOrderLines() {
     item.price > 0
   );
 }
-
 function getChartMousePoint(event) {
   const rect = els.chart.getBoundingClientRect();
 
@@ -2915,7 +3242,6 @@ function getChartMousePoint(event) {
     y: event.clientY - rect.top
   };
 }
-
 function findNearestOrderLineByY(y) {
   let nearest = null;
 
@@ -2938,7 +3264,6 @@ function findNearestOrderLineByY(y) {
 
   return nearest?.item || null;
 }
-
 function setupDraggableOrderLines() {
   if (orderLineDragBound || !els.chart) return;
 
@@ -2965,12 +3290,10 @@ function setupDraggableOrderLines() {
     }
   });
 }
-
 function isCancellableOrder(order) {
   const status = String(order?.STATUS || "").toLowerCase();
   return status === "pending" || status === "triggerpending";
 }
-
 function describeOrder(order) {
   const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
   const symbol = getOrderStringField(order, "SYMBOL", "Symbol", "symbol");
@@ -2982,7 +3305,6 @@ function describeOrder(order) {
 
   return `${action} ${symbol} · Qty ${qty} · ${price ? formatMoney(price) : "Market"}`;
 }
-
 function closeOrderLineCancelPopup() {
   document.querySelectorAll(".orderLineCancelPopup").forEach(popup => {
     popup.remove();
@@ -2990,7 +3312,6 @@ function closeOrderLineCancelPopup() {
 
   orderLineCancelPopup = null;
 }
-
 function openOrderLineCancelPopup(event) {
   if (chartOrderMode || chartAlertMode) return;
   if (!selectedsymbol || !candleSeries) return;

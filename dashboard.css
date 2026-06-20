@@ -1992,3 +1992,31 @@ kbd {
   height: 36px;
   flex: 0 0 auto;
 }
+
+.targetPriceField.hidden {
+  display: none;
+}
+
+.orderTicket.bracketMode {
+  border-color: rgba(181, 108, 255, 0.34);
+}
+
+.orderTicket.bracketMode .placeOrderBtn {
+  box-shadow: 0 14px 36px rgba(181, 108, 255, 0.16);
+}
+
+.orderTicket.bracketMode .ticketGrid {
+  grid-template-columns: 1fr .85fr 1fr 1fr 1fr 1fr;
+}
+
+.orderTicket.bracketMode .strategyChip {
+  background: rgba(181, 108, 255, 0.12);
+  border-color: rgba(181, 108, 255, 0.24);
+  color: #d3adff;
+}
+
+@media (max-width: 820px) {
+  .orderTicket.bracketMode .ticketGrid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
