@@ -94,6 +94,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   restoreUiPreferences();
   setCompactMode(compactMode, false);
   setOrderSide("BUY");
+  syncOrderProductUi(true);
   updateMarketStatus();
   setInterval(updateMarketStatus, 3e4);
   await loadUserData();
@@ -115,10 +116,16 @@ function cacheDom() {
     "sellBtn",
     "orderLot",
     "orderType",
+    "orderProduct",
+    "orderTypeLabel",
+    "limitPriceLabel",
+    "triggerPriceLabel",
+    "coverOrderHelp",
     "limitPrice",
     "triggerPrice",
     "lotInfo",
     "estimateBox",
+    "ticketMeta",
     "ticketSymbol",
     "logoutBtn",
     "addToWatchlistBtn",
@@ -224,12 +231,17 @@ function setupEventHandlers() {
     LTP: currentLTP
   }
   )));
+  if (els.orderProduct) {
+    els.orderProduct.onchange = () => {
+      syncOrderProductUi(true);
+    };
+  }
+
   els.orderType.onchange = () => {
-    fillOrderForm(els.orderType.value);
+    fillOrderForm(els.orderType.value, true);
     updateEstimatedAmount({
       LTP: currentLTP
-    }
-    )
+    });
   };
   document.querySelectorAll("#timeframeSelector button").forEach(btn => btn.onclick = async () => {
     selectedtimeframe = Number(btn.dataset.tf); localStorage.setItem("tt_timeframe", selectedtimeframe); document.querySelectorAll("#timeframeSelector button").forEach(b => b.classList.remove("active")); btn.classList.add("active"); clearBuckets(); if (selectedsymbol) {
@@ -1588,7 +1600,8 @@ async function selectSymbol(symbol) {
   plotPositionLines();
   plotFilledOrders();
   syncPriceAlertLines();
-  fillOrderForm(els.orderType.value)
+  ffillOrderForm(els.orderType.value, true);
+  updateEstimatedAmount({ LTP: currentLTP });
 }
 function highlightSelectedSymbol() {
   document.querySelectorAll(".watchlistsymbol").forEach(el => {
@@ -1798,13 +1811,20 @@ function setOrderSide(side) {
   els.buyBtn.classList.toggle("active-side", side === "BUY");
   els.sellBtn.classList.toggle("active-side", side === "SELL");
   document.querySelector(".orderTicket").dataset.side = side.toLowerCase();
+  if (getOrderProduct() === "cover") {
+    fillOrderForm(els.orderType.value, true);
+  }
   updateEstimatedAmount({
     LTP: currentLTP
-  }
-  )
+  });
 }
 function submitSelectedOrder() {
-  placeOrder(selectedOrderSide)
+  if (getOrderProduct() === "cover") {
+    placeCoverOrder(selectedOrderSide);
+    return;
+  }
+
+  placeOrder(selectedOrderSide);
 }
 
 function getOrderCashRequirement(action, quantity, price) {
@@ -1874,6 +1894,122 @@ function calculateTradePnlFromEntryToExit(action, quantity, entryPrice, exitPric
 
   return 0;
 }
+function getOrderProduct() {
+  return els.orderProduct?.value || "regular";
+}
+
+function isCoverOrderMode() {
+  return getOrderProduct() === "cover";
+}
+function syncOrderProductUi(resetPrices = false) {
+  const isCover = isCoverOrderMode();
+
+  document.querySelector(".orderTicket")?.classList.toggle("coverMode", isCover);
+
+  if (els.ticketMeta) {
+    els.ticketMeta.textContent = isCover
+      ? "Cover order · entry + mandatory stop-loss"
+      : "Charges estimated · Short selling enabled";
+  }
+
+  if (els.orderTypeLabel) {
+    els.orderTypeLabel.textContent = isCover ? "Entry Type" : "Order Type";
+  }
+
+  if (els.limitPriceLabel) {
+    els.limitPriceLabel.textContent = isCover ? "Entry Price" : "Limit Price";
+  }
+
+  if (els.triggerPriceLabel) {
+    els.triggerPriceLabel.textContent = isCover ? "Stop-loss Trigger" : "Trigger Price";
+  }
+
+  if (els.coverOrderHelp) {
+    els.coverOrderHelp.classList.toggle("hidden", !isCover);
+  }
+
+  const stopOptions = els.orderType?.querySelectorAll(
+    'option[value="stoploss"], option[value="stoplimit"]'
+  );
+
+  stopOptions?.forEach(option => {
+    option.hidden = isCover;
+    option.disabled = isCover;
+  });
+
+  if (isCover && !["market", "limit"].includes(els.orderType.value)) {
+    els.orderType.value = "market";
+  }
+
+  fillOrderForm(els.orderType.value, resetPrices);
+
+  updateEstimatedAmount({
+    LTP: currentLTP
+  });
+}
+function getCoverEntryPrice() {
+  const entryType = els.orderType.value;
+  const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
+  const limit = parseFloat(els.limitPrice.value) || 0;
+
+  if (entryType === "limit") {
+    return limit || ltp;
+  }
+
+  return ltp;
+}
+function getDefaultCoverStopLoss(action, entryPrice) {
+  const price = Number(entryPrice || 0);
+
+  if (!price || price <= 0) return "";
+
+  const distance = Math.max(price * 0.01, 0.05);
+
+  if (action === "BUY") {
+    return roundToTick(price - distance).toFixed(2);
+  }
+
+  return roundToTick(price + distance).toFixed(2);
+}
+function validateCoverOrderInput(action, quantity, entryType, entryPrice, stopLossTriggerPrice) {
+  if (!selectedsymbol) {
+    return "Select a symbol before placing a cover order.";
+  }
+
+  if (quantity <= 0) {
+    return "Enter a valid quantity.";
+  }
+
+  if (entryType !== "MARKET" && entryType !== "LIMIT") {
+    return "Cover orders support only MARKET or LIMIT entry.";
+  }
+
+  if (entryType === "LIMIT" && (!entryPrice || entryPrice <= 0)) {
+    return "Enter a valid cover entry price.";
+  }
+
+  if (!stopLossTriggerPrice || stopLossTriggerPrice <= 0) {
+    return "Enter a valid stop-loss trigger price.";
+  }
+
+  const referencePrice = entryType === "LIMIT"
+    ? entryPrice
+    : Number(currentLTP || allLTP[selectedsymbol] || 0);
+
+  if (!referencePrice || referencePrice <= 0) {
+    return "Live price unavailable for cover order.";
+  }
+
+  if (action === "BUY" && stopLossTriggerPrice >= referencePrice) {
+    return "For a BUY cover order, stop-loss trigger must be below entry price.";
+  }
+
+  if (action === "SELL" && stopLossTriggerPrice <= referencePrice) {
+    return "For a SELL cover order, stop-loss trigger must be above entry price.";
+  }
+
+  return "";
+}
 async function placeOrder(action) {
   if (!selectedsymbol) {
     showToast("Select a symbol before placing an order", "error");
@@ -1926,6 +2062,101 @@ async function placeOrder(action) {
     showToast(err.message || "Order failed", "error")
   }
 }
+async function placeCoverOrder(action) {
+  if (!selectedsymbol) {
+    showToast("Select a symbol before placing a cover order", "error");
+    return;
+  }
+
+  const lots = parseInt(els.orderLot.value, 10);
+
+  if (isNaN(lots) || lots <= 0) {
+    showToast("Enter a valid lot count", "error");
+    return;
+  }
+
+  const quantity = lots * (currentLotSize || 1);
+  const entryType = String(els.orderType.value || "").toUpperCase();
+  const entryPrice = entryType === "LIMIT"
+    ? parseFloat(els.limitPrice.value) || 0
+    : null;
+
+  const stopLossTriggerPrice = parseFloat(els.triggerPrice.value) || 0;
+
+  const validationError = validateCoverOrderInput(
+    action,
+    quantity,
+    entryType,
+    entryPrice,
+    stopLossTriggerPrice
+  );
+
+  if (validationError) {
+    showToast(validationError, "error");
+    return;
+  }
+
+  const payload = {
+    Action: action,
+    Symbol: selectedsymbol,
+    Quantity: quantity,
+    EntryType: entryType,
+    EntryPrice: entryType === "LIMIT" ? entryPrice : null,
+    StopLossTriggerPrice: stopLossTriggerPrice,
+    Validity: "DAY",
+    TimeStamp: Date.now()
+  };
+
+  const entryLabel = entryType === "LIMIT"
+    ? `${entryType} ${formatMoney(entryPrice)}`
+    : entryType;
+
+  const ok = confirm(
+    `Place cover order?\n\n` +
+    `${action} ${selectedsymbol}\n` +
+    `Qty: ${quantity.toLocaleString("en-IN")}\n` +
+    `Entry: ${entryLabel}\n` +
+    `Stop-loss: ${formatMoney(stopLossTriggerPrice)}`
+  );
+
+  if (!ok) return;
+
+  try {
+    const res = await apiFetch(`${base_url}/api/trade/place-cover-order`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      throw new Error(
+        data.MESSAGE ||
+        data.Message ||
+        data.message ||
+        data.ERROR ||
+        data.Error ||
+        data.error ||
+        (data.ERRORS || data.Errors || []).join(", ") ||
+        "Cover order failed"
+      );
+    }
+
+    showToast(data.MESSAGE || data.Message || "Cover order placed", "success");
+
+    await loadUserData();
+    await fetchOrderBook();
+
+    clearOrderForm(false);
+  }
+  catch (err) {
+    console.error("Error placing cover order:", err);
+    showToast(err.message || "Cover order failed", "error");
+  }
+}
 function getOrderEstimateValue() {
   const lots = parseInt(els.orderLot.value, 10) || 0;
   const quantity = lots * (currentLotSize || 0);
@@ -1967,40 +2198,81 @@ function clearOrderForm(resetSide = false) {
   els.orderLot.value = "1";
   els.limitPrice.value = "";
   els.triggerPrice.value = "";
-  els.orderType.value = "market";
-  fillOrderForm("market");
+
+  if (isCoverOrderMode()) {
+    els.orderType.value = "market";
+    fillOrderForm("market", true);
+  } else {
+    els.orderType.value = "market";
+    fillOrderForm("market", true);
+  }
+
   updateEstimatedAmount({
     LTP: currentLTP
-  }
-  );
-  if (resetSide) setOrderSide("BUY")
+  });
+
+  if (resetSide) setOrderSide("BUY");
 }
-function fillOrderForm(orderType) {
-  if (allLTP[selectedsymbol] !== undefined) currentLTP = Number(allLTP[selectedsymbol]);
+function fillOrderForm(orderType, resetPrices = false) {
+  if (allLTP[selectedsymbol] !== undefined) {
+    currentLTP = Number(allLTP[selectedsymbol]);
+  }
+
+  const isCover = isCoverOrderMode();
+
   els.limitPrice.disabled = true;
   els.triggerPrice.disabled = true;
+
+  if (isCover) {
+    const ltp = Number(currentLTP || allLTP[selectedsymbol] || 0);
+
+    if (orderType === "limit") {
+      els.limitPrice.disabled = false;
+
+      if (resetPrices || !els.limitPrice.value) {
+        els.limitPrice.value = ltp ? ltp.toFixed(2) : "";
+      }
+    } else {
+      els.limitPrice.value = "";
+    }
+
+    els.triggerPrice.disabled = false;
+
+    const entryPrice = getCoverEntryPrice();
+
+    if (resetPrices || !els.triggerPrice.value) {
+      els.triggerPrice.value = getDefaultCoverStopLoss(selectedOrderSide, entryPrice);
+    }
+
+    return;
+  }
+
   if (orderType === "limit") {
     els.limitPrice.disabled = false;
     els.limitPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
-    els.triggerPrice.value = ""
+    els.triggerPrice.value = "";
   }
   else if (orderType === "stoploss") {
     els.triggerPrice.disabled = false;
     els.triggerPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
-    els.limitPrice.value = ""
+    els.limitPrice.value = "";
   }
   else if (orderType === "stoplimit") {
     els.limitPrice.disabled = false;
     els.triggerPrice.disabled = false;
     els.limitPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
-    els.triggerPrice.value = currentLTP ? currentLTP.toFixed(2) : ""
+    els.triggerPrice.value = currentLTP ? currentLTP.toFixed(2) : "";
   }
   else {
     els.limitPrice.value = "";
-    els.triggerPrice.value = ""
+    els.triggerPrice.value = "";
   }
 }
 function updateEstimatedAmount(tick) {
+  if (isCoverOrderMode()) {
+    updateCoverEstimatedAmount(tick);
+    return;
+  }
   if (!selectedsymbol) {
     els.estimateBox.innerHTML = '<div class="emptyMini">Select symbol and quantity to see estimate</div>';
     return
@@ -2072,6 +2344,79 @@ function updateEstimatedAmount(tick) {
   </span>
 `;
 }
+function updateCoverEstimatedAmount(tick) {
+  if (!selectedsymbol) {
+    els.estimateBox.innerHTML = '<div class="emptyMini">Select symbol and quantity to see estimate</div>';
+    return;
+  }
+
+  const lots = parseInt(els.orderLot.value, 10) || 0;
+  const qty = lots * (currentLotSize || 0);
+
+  const entryPrice =
+    getCoverEntryPrice() ||
+    Number(tick?.LTP || currentLTP || 0);
+
+  const stopPrice = parseFloat(els.triggerPrice.value) || 0;
+
+  if (qty <= 0 || entryPrice <= 0) {
+    els.estimateBox.innerHTML = '<div class="emptyMini">Enter quantity and entry price</div>';
+    return;
+  }
+
+  const estimate = calculateOrderCost(selectedOrderSide, qty, entryPrice);
+  const required = getOrderCashRequirement(selectedOrderSide, qty, entryPrice);
+
+  let estimatedRisk = 0;
+  let riskClass = "ok";
+
+  if (stopPrice > 0) {
+    const pnlAtStop = calculateTradePnlFromEntryToExit(
+      selectedOrderSide,
+      qty,
+      entryPrice,
+      stopPrice
+    );
+
+    estimatedRisk = Math.abs(Math.min(0, pnlAtStop));
+
+    const validation = validateCoverOrderInput(
+      selectedOrderSide,
+      qty,
+      String(els.orderType.value || "").toUpperCase(),
+      els.orderType.value === "limit" ? entryPrice : null,
+      stopPrice
+    );
+
+    riskClass = validation ? "danger" : "ok";
+  }
+
+  els.estimateBox.innerHTML = `
+    <span class="estItem brand">
+      <b>Qty</b>${qty.toLocaleString("en-IN")}
+    </span>
+
+    <span class="estItem">
+      <b>Entry</b>${formatMoney(entryPrice)}
+    </span>
+
+    <span class="estItem ${riskClass}">
+      <b>Stop</b>${stopPrice ? formatMoney(stopPrice) : "₹--"}
+    </span>
+
+    <span class="estItem">
+      <b>Charges</b>${formatMoney(estimate.totalCharges)}
+    </span>
+
+    <span class="estItem ${riskClass}">
+      <b>Risk</b>${estimatedRisk ? formatMoney(estimatedRisk) : "₹--"}
+    </span>
+
+    <span class="estItem">
+      <b>Required</b>${formatMoney(required)}
+    </span>
+  `;
+}
 function renderOrderBook(orders) {
   const container = document.querySelector(".orderBookContainer");
   container.innerHTML = "";
@@ -2083,8 +2428,51 @@ function renderOrderBook(orders) {
     const row = document.createElement("div"); row.classList.add("orderRow", String(order.STATUS || "").toLowerCase()); let displayPrice = "--", triggerInfo = "--"; if (order.ORDERTYPE !== "MARKET") {
       displayPrice = order.PRICE != null ? fmtNum(order.PRICE) : "--"; if (order.ORDERTYPE === "STOPLIMIT" || order.ORDERTYPE === "STOPLOSS") triggerInfo = order.TRIGGERPRICE != null ? fmtNum(order.TRIGGERPRICE) : "--"
     }
-    const exec = order.EXECUTEDPRICE != null ? fmtNum(order.EXECUTEDPRICE) : "--", action = String(order.ACTION || "").toUpperCase(); row.innerHTML = `<div class="orderInfo"><span class="symbol">${order.SYMBOL}</span><span class="action ${action.toLowerCase()}">${action}</span><span>Qty: ${order.QUANTITY}</span><span>Price: ₹${displayPrice}</span><span>Trigger: ₹${triggerInfo}</span><span>Executed: ₹${exec}</span><span class="status">${order.STATUS}</span></div>`; const actions = document.createElement("div"); actions.className = "orderActions"; if (order.STATUS === "Pending" || order.STATUS === "TriggerPending") {
-      const m = document.createElement("button"); m.className = "modifyBtn"; m.textContent = "Modify"; m.onclick = () => openModifyDropdown(order); const c = document.createElement("button"); c.className = "cancelOrderBtn"; c.textContent = "Cancel"; c.onclick = () => cancelOrder(order.ORDERID); actions.append(m, c)
+    const exec = order.EXECUTEDPRICE != null ? fmtNum(order.EXECUTEDPRICE) : "--";
+    const action = String(order.ACTION || "").toUpperCase(); 
+    const strategy = getOrderStringField(order, "STRATEGYTYPE", "StrategyType", "strategyType");
+    const purpose = getOrderStringField(order, "PURPOSE", "Purpose", "purpose");
+    const strategyHtml = strategy || purpose
+      ? `<span class="strategyChip">${strategy || "NORMAL"}${purpose ? ` · ${purpose}` : ""}</span>`
+      : "";
+
+    row.innerHTML = `
+      <div class="orderInfo">
+        <span class="symbol">${order.SYMBOL}</span>
+        <span class="action ${action.toLowerCase()}">${action}</span>
+        ${strategyHtml}
+        <span>Qty: ${order.QUANTITY}</span>
+        <span>Price: ₹${displayPrice}</span>
+        <span>Trigger: ₹${triggerInfo}</span>
+        <span>Executed: ₹${exec}</span>
+        <span class="status">${order.STATUS}</span>
+      </div>
+    `;
+    const actions = document.createElement("div"); 
+    actions.className = "orderActions"; 
+    if (order.STATUS === "Pending" || order.STATUS === "TriggerPending") 
+    {
+      const m = document.createElement("button"); 
+      m.className = "modifyBtn"; 
+      m.textContent = "Modify"; 
+      m.onclick = () => openModifyDropdown(order); 
+      const c = document.createElement("button"); 
+      c.className = "cancelOrderBtn"; 
+      c.textContent = "Cancel"; 
+      c.onclick = () => {
+        const purpose = getOrderStringField(order, "PURPOSE", "Purpose", "purpose");
+
+        if (purpose === "COVER_CHILD") {
+          const ok = confirm(
+            "Cancel cover stop-loss?\n\nYour position may remain open without protection."
+          );
+
+          if (!ok) return;
+        }
+
+        cancelOrder(getOrderId(order));
+      };
+      actions.append(m, c)
     }
     row.appendChild(actions); container.appendChild(row)
   }

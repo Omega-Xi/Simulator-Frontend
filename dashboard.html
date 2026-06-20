@@ -222,17 +222,42 @@
       <div class="sideToggle"><button id="buyBtn" class="orderBtn buy active-side">BUY</button><button id="sellBtn"
           class="orderBtn sell">SELL</button></div>
       <div id="orderForm" class="ticketGrid">
-        <label>Lots <small id="lotInfo"></small><input type="number" id="orderLot" min="1" value="1" /></label>
-        <label>Order Type <select id="orderType">
+        <label>
+          Product
+          <select id="orderProduct">
+            <option value="regular">Regular</option>
+            <option value="cover">Cover</option>
+          </select>
+        </label>
+
+        <label>
+          Lots <small id="lotInfo"></small>
+          <input type="number" id="orderLot" min="1" value="1" />
+        </label>
+
+        <label>
+          <span id="orderTypeLabel">Order Type</span>
+          <select id="orderType">
             <option value="market">Market</option>
             <option value="limit">Limit</option>
             <option value="stoploss">SL-M</option>
             <option value="stoplimit">SL</option>
-          </select></label>
-        <label>Limit Price <input type="number" id="limitPrice" placeholder="Limit price" step="0.05"
-            disabled /></label>
-        <label>Trigger Price <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05"
-            disabled /></label>
+          </select>
+        </label>
+
+        <label>
+          <span id="limitPriceLabel">Limit Price</span>
+          <input type="number" id="limitPrice" placeholder="Limit price" step="0.05" disabled />
+        </label>
+
+        <label>
+          <span id="triggerPriceLabel">Trigger Price</span>
+          <input type="number" id="triggerPrice" placeholder="Trigger price" step="0.05" disabled />
+        </label>
+      </div>
+
+      <div id="coverOrderHelp" class="coverOrderHelp hidden">
+        Cover order places an entry order first. After entry fills, a mandatory stop-loss order is created automatically.
       </div>
       <div id="estimateBox" class="estimateBox">
         <div class="emptyMini">Select symbol and quantity to see estimate</div>
