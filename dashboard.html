@@ -325,7 +325,7 @@
     <div class="modalCard presetCard">
       <div class="modalHeader">
         <div>
-          <h3>Preset Order Settings</h3>
+          <h3>Risk & Order Presets</h3>
           <p>Used by <kbd>Alt</kbd> + <kbd>B</kbd> and <kbd>Alt</kbd> + <kbd>S</kbd></p>
         </div>
 
@@ -350,41 +350,91 @@
 
         <label class="presetRule">
           <div>
-            <strong>ATR risk control</strong>
-            <span>Calculate stop-loss using ATR and size quantity by max risk.</span>
+            <strong>Risk sizing</strong>
+            <span>Size quantity using your maximum risk amount and selected stop-loss method.</span>
           </div>
           <input type="checkbox" id="presetRiskEnabled">
         </label>
 
+        <label class="presetField">
+          <span>Risk amount</span>
+          <input
+            type="number"
+            id="presetRiskAmount"
+            min="0"
+            step="100"
+            placeholder="Example: 1000"
+          >
+        </label>
+
+        <div class="presetDivider"></div>
+
+        <label class="presetField">
+          <span>Stop-loss method</span>
+          <select id="presetStopMode">
+            <option value="percent">Fixed percent</option>
+            <option value="atr">ATR based</option>
+            <option value="fixed">Fixed ₹ amount</option>
+          </select>
+        </label>
+
         <div class="presetGrid">
           <label class="presetField">
-            <span>Risk amount</span>
-            <input type="number" id="presetRiskAmount" min="0" step="50" placeholder="Example: 500">
+            <span>Stop percent</span>
+            <input type="number" id="presetStopPercent" min="0.05" step="0.05" value="1">
+          </label>
+
+          <label class="presetField">
+            <span>Fixed stop ₹</span>
+            <input type="number" id="presetFixedStopAmount" min="0.05" step="0.05" value="5">
           </label>
 
           <label class="presetField">
             <span>ATR period</span>
             <input type="number" id="presetAtrPeriod" min="2" step="1" value="14">
           </label>
-
-          <label class="presetField">
-            <span>ATR multiplier</span>
-            <input type="number" id="presetAtrMultiplier" min="0.1" step="0.1" value="1.5">
-          </label>
         </div>
+
+        <label class="presetField">
+          <span>ATR multiplier</span>
+          <input type="number" id="presetAtrMultiplier" min="0.1" step="0.1" value="1.5">
+        </label>
+
+        <div class="presetDivider"></div>
 
         <label class="presetRule">
           <div>
-            <strong>Target by R:R</strong>
-            <span>Place target based on risk-reward ratio from ATR stop distance.</span>
+            <strong>Target defaults</strong>
+            <span>Used for bracket orders and optional target placement.</span>
           </div>
-          <input type="checkbox" id="presetTargetEnabled">
+          <input type="checkbox" id="presetTargetEnabled" checked>
         </label>
 
         <label class="presetField">
-          <span>Risk-reward ratio</span>
-          <input type="number" id="presetRiskRewardRatio" min="0.1" step="0.1" value="2">
+          <span>Target method</span>
+          <select id="presetTargetMode">
+            <option value="rr">Risk-reward ratio</option>
+            <option value="percent">Fixed percent</option>
+            <option value="fixed">Fixed ₹ amount</option>
+          </select>
         </label>
+
+        <div class="presetGrid">
+          <label class="presetField">
+            <span>Risk-reward ratio</span>
+            <input type="number" id="presetRiskRewardRatio" min="0.1" step="0.1" value="2">
+          </label>
+
+          <label class="presetField">
+            <span>Target percent</span>
+            <input type="number" id="presetTargetPercent" min="0.05" step="0.05" value="2">
+          </label>
+
+          <label class="presetField">
+            <span>Fixed target ₹</span>
+            <input type="number" id="presetFixedTargetAmount" min="0.05" step="0.05" value="10">
+          </label>
+        </div>
 
         <div class="presetDivider"></div>
 
@@ -410,6 +460,14 @@
             <span>Recommended for shortcut-based preset orders.</span>
           </div>
           <input type="checkbox" id="presetConfirm" checked>
+        </label>
+
+        <label class="presetRule">
+          <div>
+            <strong>Apply to chart strategies</strong>
+            <span>Use these defaults when placing cover/bracket orders from the chart.</span>
+          </div>
+          <input type="checkbox" id="presetApplyToChartStrategies" checked>
         </label>
 
         <div id="presetValidation" class="presetValidation"></div>

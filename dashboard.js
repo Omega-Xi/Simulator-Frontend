@@ -33,6 +33,7 @@ let alertAudioContext = null;
 let alertMasterGain = null;
 let priceAlerts = [];
 let priceAlertLines = [];
+let chartStrategyPreviewLines = [];
 let chartAlertMode = false;
 let accessRefreshTimer = null;
 let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, wsReconnectTimer = null;
@@ -51,14 +52,28 @@ let presetSettings = {
 
   riskEnabled: false,
   riskAmount: 0,
+
+  stopMode: "percent", 
+  // percent | atr | fixed
+
+  stopPercent: 1,
+  fixedStopAmount: 5,
+
   atrPeriod: 14,
   atrMultiplier: 1.5,
 
-  targetEnabled: false,
+  targetEnabled: true,
+  targetMode: "rr",
+  // rr | percent | fixed
+
   riskRewardRatio: 2,
+  targetPercent: 2,
+  fixedTargetAmount: 10,
 
   placeStopLoss: false,
   placeTarget: false,
+
+  applyToChartStrategies: true,
   confirmBeforeSend: true
 };
 const els = {};
@@ -156,6 +171,13 @@ function cacheDom() {
     "presetBudgetAmount",
     "presetRiskEnabled",
     "presetRiskAmount",
+    "presetStopMode",
+    "presetStopPercent",
+    "presetFixedStopAmount",
+    "presetTargetMode",
+    "presetTargetPercent",
+    "presetFixedTargetAmount",
+    "presetApplyToChartStrategies",
     "presetAtrPeriod",
     "presetAtrMultiplier",
     "presetTargetEnabled",
@@ -213,7 +235,12 @@ function setupEventHandlers() {
   [
     els.presetBudgetEnabled,
     els.presetRiskEnabled,
-    els.presetTargetEnabled
+    els.presetTargetEnabled,
+    els.presetStopMode,
+    els.presetTargetMode,
+    els.presetPlaceStopLoss,
+    els.presetPlaceTarget,
+    els.presetApplyToChartStrategies
   ].forEach(input => {
     if (input) {
       input.addEventListener("change", updatePresetFieldStates);
@@ -226,18 +253,49 @@ function setupEventHandlers() {
       }
     })
   }
-  [
-    els.orderLot,
-    els.limitPrice,
-    els.triggerPrice,
-    els.targetPrice
-  ].forEach(x => {
-    if (!x) return;
+  if (els.orderLot) {
+    els.orderLot.addEventListener("input", () => {
+      updateEstimatedAmount({ LTP: currentLTP });
+    });
+  }
 
-    x.addEventListener("input", () => updateEstimatedAmount({
-      LTP: currentLTP
-    }));
-  });
+  if (els.limitPrice) {
+    els.limitPrice.addEventListener("input", () => {
+      if (isStrategyOrderMode() && els.orderType.value === "limit") {
+        refreshStrategyTicketDefaultsFromEntry();
+        return;
+      }
+
+      updateEstimatedAmount({ LTP: currentLTP });
+    });
+  }
+
+  if (els.triggerPrice) {
+    els.triggerPrice.addEventListener("input", () => {
+      if (isBracketOrderMode() && els.targetPrice && presetSettings.targetMode === "rr") {
+        const entryPrice = getStrategyEntryPrice();
+        const stopPrice = parseFloat(els.triggerPrice.value) || 0;
+
+        const targetPrice = getDefaultBracketTarget(
+          selectedOrderSide,
+          entryPrice,
+          stopPrice
+        );
+
+        if (targetPrice) {
+          els.targetPrice.value = targetPrice;
+        }
+      }
+
+      updateEstimatedAmount({ LTP: currentLTP });
+    });
+  }
+
+  if (els.targetPrice) {
+    els.targetPrice.addEventListener("input", () => {
+      updateEstimatedAmount({ LTP: currentLTP });
+    });
+  }
   if (els.orderProduct) {
     els.orderProduct.onchange = () => {
       syncOrderProductUi(true);
@@ -1181,7 +1239,7 @@ function toggleChartOrderMode() {
 
   showToast(
     chartOrderMode
-      ? "Chart order mode enabled. Click a price level."
+      ? `Chart ${getOrderProduct()} order mode enabled. Click entry price.`
       : "Chart order mode disabled.",
     "info"
   );
@@ -1227,6 +1285,393 @@ function getChartOrderType(action, price) {
   throw new Error("Invalid order side.");
 }
 function showChartOrderPreview(price, point) {
+  const product = getOrderProduct();
+
+  if (product === "cover" || product === "bracket") {
+    showChartStrategyOrderPreview(product, price, point);
+    return;
+  }
+
+  showRegularChartOrderPreview(price, point);
+}
+function showChartStrategyOrderPreview(product, entryPrice, point) {
+  clearChartOrderPreview();
+
+  if (!selectedsymbol) {
+    showToast("Select a symbol before placing chart order", "error");
+    return;
+  }
+
+  const action = selectedOrderSide;
+  const lots = parseInt(els.orderLot.value, 10) || 0;
+  const quantity = lots * (currentLotSize || 1);
+
+  if (quantity <= 0) {
+    showToast("Enter lot count before placing chart order", "error");
+    return;
+  }
+
+  const activeHolding = getActiveHoldings();
+
+  if (product === "bracket" && activeHolding) {
+    showToast("Bracket orders are allowed only when there is no active position.", "error");
+    return;
+  }
+
+  const entryType = getDefaultChartEntryType();
+  const initial = getChartStrategyInitialPrices(product, action, entryPrice);
+
+  const entryLine = createStrategyPreviewLine(entryPrice, {
+    color: action === "BUY" ? "#00c076" : "#ff4d5a",
+    lineWidth: 2,
+    title: `${getChartStrategyEntryLabel(product)} ${action} ${quantity} @ ${fmtNum(entryPrice)}`
+  });
+
+  const stopLine = createStrategyPreviewLine(initial.stopLossPrice, {
+    color: "#ff4d5a",
+    lineWidth: 2,
+    title: `SL ${fmtNum(initial.stopLossPrice)}`
+  });
+
+  let targetLine = null;
+
+  if (product === "bracket") {
+    targetLine = createStrategyPreviewLine(initial.targetPrice, {
+      color: "#00c076",
+      lineWidth: 2,
+      title: `Target ${fmtNum(initial.targetPrice)}`
+    });
+  }
+
+  chartOrderPopup = document.createElement("div");
+  chartOrderPopup.className = `chartStrategyPopup ${product} ${action.toLowerCase()}`;
+
+  const metrics = calculateStrategyPreviewMetrics(
+    action,
+    quantity,
+    entryPrice,
+    initial.stopLossPrice,
+    initial.targetPrice
+  );
+
+  chartOrderPopup.innerHTML = `
+    <div class="chartOrderHead">
+      <strong>${getChartStrategyTitle(product, action)}</strong>
+      <button type="button" data-chart-order-close>&times;</button>
+    </div>
+
+    <div class="chartStrategySummary">
+      <div><span>Symbol</span><b>${selectedsymbol}</b></div>
+      <div><span>Qty</span><b>${quantity.toLocaleString("en-IN")}</b></div>
+      <div><span>Entry</span><b>${formatMoney(entryPrice)}</b></div>
+      <div><span>Required</span><b>${formatMoney(metrics.required)}</b></div>
+    </div>
+
+    <div class="chartStrategyGrid">
+      <label>
+        <span>Stop-loss</span>
+        <input type="number" data-chart-stop step="0.05" value="${initial.stopLossPrice}">
+      </label>
+
+      ${
+        product === "bracket"
+          ? `<label>
+              <span>Target</span>
+              <input type="number" data-chart-target step="0.05" value="${initial.targetPrice}">
+            </label>`
+          : ""
+      }
+    </div>
+
+    <div class="chartStrategyRisk" data-chart-risk>
+      Risk: ${formatMoney(metrics.risk)}
+      ${
+        product === "bracket"
+          ? ` · Reward: ${formatMoney(metrics.reward)}`
+          : ""
+      }
+    </div>
+
+    <button type="button" class="chartOrderPlace">
+      Place ${product === "bracket" ? "Bracket" : "Cover"} Order
+    </button>
+  `;
+
+  els.chart.appendChild(chartOrderPopup);
+
+  const chartRect = els.chart.getBoundingClientRect();
+  const popupWidth = product === "bracket" ? 280 : 250;
+
+  const left = Math.min(
+    Math.max(12, point.x + 14),
+    chartRect.width - popupWidth - 12
+  );
+
+  const top = Math.min(
+    Math.max(12, point.y - 90),
+    chartRect.height - 210
+  );
+
+  chartOrderPopup.style.left = `${left}px`;
+  chartOrderPopup.style.top = `${top}px`;
+
+  const stopInput = chartOrderPopup.querySelector("[data-chart-stop]");
+  const targetInput = chartOrderPopup.querySelector("[data-chart-target]");
+  const riskBox = chartOrderPopup.querySelector("[data-chart-risk]");
+
+  function refreshStrategyPreview() {
+    const stopPrice = roundToTick(parseFloat(stopInput.value) || 0);
+    const targetPrice = product === "bracket"
+      ? roundToTick(parseFloat(targetInput.value) || 0)
+      : 0;
+
+    if (stopPrice > 0) {
+      stopLine.applyOptions({
+        price: stopPrice,
+        title: `SL ${fmtNum(stopPrice)}`
+      });
+    }
+
+    if (product === "bracket" && targetLine && targetPrice > 0) {
+      targetLine.applyOptions({
+        price: targetPrice,
+        title: `Target ${fmtNum(targetPrice)}`
+      });
+    }
+
+    const nextMetrics = calculateStrategyPreviewMetrics(
+      action,
+      quantity,
+      entryPrice,
+      stopPrice,
+      targetPrice
+    );
+
+    const validationError = product === "bracket"
+      ? validateBracketOrderInput(
+          action,
+          quantity,
+          entryType,
+          entryPrice,
+          stopPrice,
+          targetPrice
+        )
+      : validateCoverOrderInput(
+          action,
+          quantity,
+          entryType,
+          entryPrice,
+          stopPrice
+        );
+
+    riskBox.classList.toggle("danger", !!validationError);
+
+    riskBox.textContent = validationError
+      ? validationError
+      : product === "bracket"
+        ? `Risk: ${formatMoney(nextMetrics.risk)} · Reward: ${formatMoney(nextMetrics.reward)}`
+        : `Risk: ${formatMoney(nextMetrics.risk)}`;
+  }
+
+  let targetManuallyEdited = false;
+
+if (targetInput) {
+  targetInput.addEventListener("input", () => {
+    targetManuallyEdited = true;
+    refreshStrategyPreview();
+  });
+}
+
+stopInput.addEventListener("input", () => {
+    if (
+      product === "bracket" &&
+      targetInput &&
+      !targetManuallyEdited &&
+      presetSettings.applyToChartStrategies &&
+      presetSettings.targetMode === "rr"
+    ) {
+      const stopPrice = roundToTick(parseFloat(stopInput.value) || 0);
+
+      const recalculatedTarget = getPresetBasedTarget(
+        action,
+        entryPrice,
+        stopPrice
+      );
+
+      if (recalculatedTarget) {
+        targetInput.value = recalculatedTarget;
+      }
+    }
+
+    refreshStrategyPreview();
+  });
+
+  chartOrderPopup.querySelector("[data-chart-order-close]").onclick = clearChartOrderPreview;
+
+  chartOrderPopup.querySelector(".chartOrderPlace").onclick = async event => {
+    const btn = event.currentTarget;
+
+    const stopPrice = roundToTick(parseFloat(stopInput.value) || 0);
+    const targetPrice = product === "bracket"
+      ? roundToTick(parseFloat(targetInput.value) || 0)
+      : 0;
+
+    const validationError = product === "bracket"
+      ? validateBracketOrderInput(
+          action,
+          quantity,
+          entryType,
+          entryPrice,
+          stopPrice,
+          targetPrice
+        )
+      : validateCoverOrderInput(
+          action,
+          quantity,
+          entryType,
+          entryPrice,
+          stopPrice
+        );
+
+    if (validationError) {
+      showToast(validationError, "error");
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Placing...";
+
+    try {
+      await placeChartStrategyOrder({
+        product,
+        action,
+        quantity,
+        entryType,
+        entryPrice,
+        stopLossTriggerPrice: stopPrice,
+        targetPrice
+      });
+    } catch (err) {
+      console.error("Chart strategy order failed:", err);
+      showToast(
+        err.message || `${product === "bracket" ? "Bracket" : "Cover"} order failed`,
+        "error"
+      );
+    } finally {
+      btn.disabled = false;
+      btn.textContent = `Place ${product === "bracket" ? "Bracket" : "Cover"} Order`;
+    }
+  };
+
+  refreshStrategyPreview();
+}
+function refreshStrategyTicketDefaultsFromEntry() {
+  if (!isStrategyOrderMode()) return;
+
+  const entryPrice = getStrategyEntryPrice();
+
+  if (!entryPrice || entryPrice <= 0) return;
+
+  const stopLossPrice = getDefaultStrategyStopLoss(
+    selectedOrderSide,
+    entryPrice
+  );
+
+  if (stopLossPrice) {
+    els.triggerPrice.value = stopLossPrice;
+  }
+
+  if (isBracketOrderMode() && els.targetPrice) {
+    const targetPrice = getDefaultBracketTarget(
+      selectedOrderSide,
+      entryPrice,
+      Number(stopLossPrice)
+    );
+
+    if (targetPrice) {
+      els.targetPrice.value = targetPrice;
+    }
+  }
+
+  updateEstimatedAmount({
+    LTP: currentLTP
+  });
+}
+async function placeChartStrategyOrder(plan) {
+  const isBracket = plan.product === "bracket";
+
+  const endpoint = isBracket
+    ? `${base_url}/api/trade/place-bracket-order`
+    : `${base_url}/api/trade/place-cover-order`;
+
+  const payload = {
+    Action: plan.action,
+    Symbol: selectedsymbol,
+    Quantity: plan.quantity,
+    EntryType: plan.entryType,
+    EntryPrice: plan.entryType === "LIMIT" ? plan.entryPrice : null,
+    StopLossTriggerPrice: plan.stopLossTriggerPrice,
+    Validity: "DAY",
+    TimeStamp: Date.now()
+  };
+
+  if (isBracket) {
+    payload.TargetPrice = plan.targetPrice;
+  }
+
+  const confirmLines = [
+    `Place ${isBracket ? "bracket" : "cover"} order?`,
+    "",
+    `${plan.action} ${selectedsymbol}`,
+    `Qty: ${plan.quantity.toLocaleString("en-IN")}`,
+    `Entry: ${plan.entryType} ${formatMoney(plan.entryPrice)}`,
+    `Stop-loss: ${formatMoney(plan.stopLossTriggerPrice)}`
+  ];
+
+  if (isBracket) {
+    confirmLines.push(`Target: ${formatMoney(plan.targetPrice)}`);
+  }
+
+  const ok = confirm(confirmLines.join("\n"));
+  if (!ok) return;
+
+  const res = await apiFetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.MESSAGE ||
+      data.Message ||
+      data.message ||
+      data.ERROR ||
+      data.Error ||
+      data.error ||
+      (data.ERRORS || data.Errors || []).join(", ") ||
+      `${isBracket ? "Bracket" : "Cover"} order failed`
+    );
+  }
+
+  showToast(
+    data.MESSAGE ||
+    data.Message ||
+    `${isBracket ? "Bracket" : "Cover"} order placed`,
+    "success"
+  );
+
+  clearChartOrderPreview();
+
+  await loadUserData();
+  await fetchOrderBook();
+  plotOrderLines();
+}
+function showRegularChartOrderPreview(price, point) {
   clearChartOrderPreview();
 
   const action = selectedOrderSide;
@@ -1322,8 +1767,98 @@ function clearChartOrderPreview() {
     chartOrderPreviewLine = null;
   }
 
+  chartStrategyPreviewLines.forEach(line => {
+    try {
+      candleSeries.removePriceLine(line);
+    } catch { }
+  });
+
+  chartStrategyPreviewLines = [];
+
   chartOrderPopup?.remove();
   chartOrderPopup = null;
+}
+function createStrategyPreviewLine(price, options) {
+  const line = candleSeries.createPriceLine({
+    price,
+    color: options.color,
+    lineWidth: options.lineWidth || 2,
+    lineStyle: options.lineStyle || LightweightCharts.LineStyle.Dashed,
+    axisLabelVisible: true,
+    title: options.title
+  });
+
+  chartStrategyPreviewLines.push(line);
+
+  return line;
+}
+
+function getChartStrategyEntryLabel(product) {
+  return product === "bracket" ? "BRACKET ENTRY" : "COVER ENTRY";
+}
+
+function getChartStrategyTitle(product, action) {
+  return `${action} ${product === "bracket" ? "Bracket" : "Cover"} Order`;
+}
+
+function getDefaultChartEntryType() {
+  // Chart click means user picked a specific entry level.
+  // So use LIMIT for cover/bracket chart orders.
+  return "LIMIT";
+}
+
+function getChartStrategyInitialPrices(product, action, entryPrice) {
+  const stopLossPrice = Number(
+    getDefaultStrategyStopLoss
+      ? getDefaultStrategyStopLoss(action, entryPrice)
+      : getDefaultCoverStopLoss(action, entryPrice)
+  );
+
+  let targetPrice = 0;
+
+  if (product === "bracket") {
+    targetPrice = Number(getDefaultBracketTarget(action, entryPrice, stopLossPrice));
+  }
+
+  return {
+    stopLossPrice,
+    targetPrice
+  };
+}
+
+function calculateStrategyPreviewMetrics(action, quantity, entryPrice, stopLossPrice, targetPrice = 0) {
+  const required = getOrderCashRequirement(action, quantity, entryPrice);
+
+  let risk = 0;
+  let reward = 0;
+
+  if (stopLossPrice > 0) {
+    const pnlAtStop = calculateTradePnlFromEntryToExit(
+      action,
+      quantity,
+      entryPrice,
+      stopLossPrice
+    );
+
+    risk = Math.abs(Math.min(0, pnlAtStop));
+  }
+
+  if (targetPrice > 0) {
+    const pnlAtTarget = calculateTradePnlFromEntryToExit(
+      action,
+      quantity,
+      entryPrice,
+      targetPrice
+    );
+
+    reward = Math.max(0, pnlAtTarget);
+  }
+
+  return {
+    required,
+    risk,
+    reward
+  };
 }
 function validateChartOrderPositionCompatibility(action, quantity) {
   const activeHolding = getActiveHoldings();
@@ -1607,7 +2142,7 @@ async function selectSymbol(symbol) {
   plotPositionLines();
   plotFilledOrders();
   syncPriceAlertLines();
-  ffillOrderForm(els.orderType.value, true);
+  fillOrderForm(els.orderType.value, true);
   updateEstimatedAmount({ LTP: currentLTP });
 }
 function highlightSelectedSymbol() {
@@ -1999,22 +2534,91 @@ function getCoverEntryPrice() {
   return getStrategyEntryPrice();
 }
 function getDefaultStrategyStopLoss(action, entryPrice) {
+  if (presetSettings.applyToChartStrategies) {
+    return getPresetBasedStopLoss(action, entryPrice);
+  }
+
+  return getFallbackStopLoss(action, entryPrice);
+}
+function getDefaultCoverStopLoss(action, entryPrice) {
+  return getDefaultStrategyStopLoss(action, entryPrice);
+}
+function getDefaultBracketTarget(action, entryPrice, stopLossPrice) {
+  if (presetSettings.applyToChartStrategies) {
+    return getPresetBasedTarget(action, entryPrice, stopLossPrice);
+  }
+
+  return getFallbackBracketTarget(action, entryPrice, stopLossPrice);
+}
+function getFallbackStopLoss(action, entryPrice) {
   const price = Number(entryPrice || 0);
 
   if (!price || price <= 0) return "";
 
   const distance = Math.max(price * 0.01, 0.05);
 
-  if (action === "BUY") {
-    return roundToTick(price - distance).toFixed(2);
+  const stopPrice = String(action).toUpperCase() === "BUY"
+    ? price - distance
+    : price + distance;
+
+  return roundToTick(Math.max(stopPrice, 0.05)).toFixed(2);
+}
+
+function getPresetStopDistance(entryPrice) {
+  const price = Number(entryPrice || 0);
+
+  if (!price || price <= 0) return 0;
+
+  const mode = presetSettings.stopMode || "percent";
+
+  let distance = 0;
+
+  if (mode === "percent") {
+    const percent = Number(presetSettings.stopPercent || 1);
+    distance = price * (percent / 100);
   }
 
-  return roundToTick(price + distance).toFixed(2);
+  else if (mode === "fixed") {
+    distance = Number(presetSettings.fixedStopAmount || 0);
+  }
+
+  else if (mode === "atr") {
+    try {
+      const candles = getSortedCandles();
+      const atr = calculateATR(candles, Number(presetSettings.atrPeriod || 14));
+      distance = atr * Number(presetSettings.atrMultiplier || 1.5);
+    } catch {
+      // If ATR cannot be calculated yet, fallback to percent stop.
+      distance = price * (Number(presetSettings.stopPercent || 1) / 100);
+    }
+  }
+
+  if (!distance || distance <= 0) {
+    distance = price * 0.01;
+  }
+
+  return Math.max(distance, 0.05);
 }
-function getDefaultCoverStopLoss(action, entryPrice) {
-  return getDefaultStrategyStopLoss(action, entryPrice);
+
+function getPresetBasedStopLoss(action, entryPrice) {
+  const price = Number(entryPrice || 0);
+
+  if (!price || price <= 0) return "";
+
+  const distance = getPresetStopDistance(price);
+
+  const stopPrice = String(action).toUpperCase() === "BUY"
+    ? price - distance
+    : price + distance;
+
+  if (!stopPrice || stopPrice <= 0) {
+    return getFallbackStopLoss(action, entryPrice);
+  }
+
+  return roundToTick(stopPrice).toFixed(2);
 }
-function getDefaultBracketTarget(action, entryPrice, stopLossPrice) {
+
+function getFallbackBracketTarget(action, entryPrice, stopLossPrice) {
   const entry = Number(entryPrice || 0);
   const stop = Number(stopLossPrice || 0);
 
@@ -2023,11 +2627,55 @@ function getDefaultBracketTarget(action, entryPrice, stopLossPrice) {
   const riskDistance = Math.abs(entry - stop);
   const rewardDistance = riskDistance * 2;
 
-  if (action === "BUY") {
-    return roundToTick(entry + rewardDistance).toFixed(2);
+  const targetPrice = String(action).toUpperCase() === "BUY"
+    ? entry + rewardDistance
+    : entry - rewardDistance;
+
+  if (!targetPrice || targetPrice <= 0) return "";
+
+  return roundToTick(targetPrice).toFixed(2);
+}
+
+function getPresetBasedTarget(action, entryPrice, stopLossPrice) {
+  const entry = Number(entryPrice || 0);
+  const stop = Number(stopLossPrice || 0);
+
+  if (!entry || entry <= 0 || !stop || stop <= 0) return "";
+
+  const mode = presetSettings.targetMode || "rr";
+
+  let rewardDistance = 0;
+
+  if (!presetSettings.targetEnabled) {
+    return getFallbackBracketTarget(action, entryPrice, stopLossPrice);
   }
 
-  return roundToTick(entry - rewardDistance).toFixed(2);
+  if (mode === "rr") {
+    const riskDistance = Math.abs(entry - stop);
+    rewardDistance = riskDistance * Number(presetSettings.riskRewardRatio || 2);
+  }
+
+  else if (mode === "percent") {
+    rewardDistance = entry * (Number(presetSettings.targetPercent || 2) / 100);
+  }
+
+  else if (mode === "fixed") {
+    rewardDistance = Number(presetSettings.fixedTargetAmount || 0);
+  }
+
+  if (!rewardDistance || rewardDistance <= 0) {
+    return getFallbackBracketTarget(action, entryPrice, stopLossPrice);
+  }
+
+  const targetPrice = String(action).toUpperCase() === "BUY"
+    ? entry + rewardDistance
+    : entry - rewardDistance;
+
+  if (!targetPrice || targetPrice <= 0) {
+    return getFallbackBracketTarget(action, entryPrice, stopLossPrice);
+  }
+
+  return roundToTick(targetPrice).toFixed(2);
 }
 function validateCoverOrderInput(action, quantity, entryType, entryPrice, stopLossTriggerPrice) {
   if (!selectedsymbol) {
@@ -3678,16 +4326,36 @@ function calculatePresetOrderPlan(action) {
   }
 
   if (!presetSettings.budgetEnabled && !presetSettings.riskEnabled) {
-    throw new Error("Enable Budget cap or ATR risk control first.");
+    throw new Error("Enable Budget cap or Risk sizing first.");
   }
 
   const candidates = [];
-  const candles = getSortedCandles();
 
   let atr = null;
   let stopDistance = null;
   let stopLossPrice = null;
   let targetPrice = null;
+
+  if (
+    presetSettings.riskEnabled ||
+    presetSettings.placeStopLoss ||
+    presetSettings.placeTarget
+  ) {
+    stopLossPrice = Number(getPresetBasedStopLoss(action, entryPrice));
+    stopDistance = Math.abs(entryPrice - stopLossPrice);
+
+    if (presetSettings.stopMode === "atr") {
+      try {
+        atr = calculateATR(getSortedCandles(), Number(presetSettings.atrPeriod || 14));
+      } catch {
+        atr = null;
+      }
+    }
+
+    if (!stopLossPrice || stopLossPrice <= 0 || !stopDistance || stopDistance <= 0) {
+      throw new Error("Could not calculate preset stop-loss.");
+    }
+  }
 
   if (presetSettings.budgetEnabled) {
     const budget = Number(presetSettings.budgetAmount);
@@ -3708,36 +4376,13 @@ function calculatePresetOrderPlan(action) {
 
   if (presetSettings.riskEnabled) {
     const riskAmount = Number(presetSettings.riskAmount);
-    const atrPeriod = Number(presetSettings.atrPeriod || 14);
-    const atrMultiplier = Number(presetSettings.atrMultiplier || 1.5);
 
     if (!riskAmount || riskAmount <= 0) {
       throw new Error("Risk amount is required.");
     }
 
-    if (atrPeriod < 2) {
-      throw new Error("ATR period must be at least 2.");
-    }
-
-    if (!atrMultiplier || atrMultiplier <= 0) {
-      throw new Error("ATR multiplier must be greater than zero.");
-    }
-
-    atr = calculateATR(candles, atrPeriod);
-    stopDistance = atr * atrMultiplier;
-
-    if (!stopDistance || stopDistance <= 0) {
-      throw new Error("ATR stop distance could not be calculated.");
-    }
-
-    if (action === "BUY") {
-      stopLossPrice = roundToTick(entryPrice - stopDistance);
-    } else {
-      stopLossPrice = roundToTick(entryPrice + stopDistance);
-    }
-
-    if (stopLossPrice <= 0) {
-      throw new Error("Calculated stop-loss price is invalid.");
+    if (!stopLossPrice || !stopDistance) {
+      throw new Error("Stop-loss is required for risk-based sizing.");
     }
 
     const riskQty = getMaxQuantityWithinRisk(
@@ -3751,28 +4396,14 @@ function calculatePresetOrderPlan(action) {
     candidates.push(riskQty);
   }
 
-  if (presetSettings.targetEnabled) {
-    if (!presetSettings.riskEnabled) {
-      throw new Error("Target by R:R requires ATR risk control.");
+  if (presetSettings.targetEnabled && presetSettings.placeTarget) {
+    if (!stopLossPrice) {
+      throw new Error("Target calculation requires a valid stop-loss.");
     }
 
-    const riskRewardRatio = Number(presetSettings.riskRewardRatio || 2);
+    targetPrice = Number(getPresetBasedTarget(action, entryPrice, stopLossPrice));
 
-    if (!riskRewardRatio || riskRewardRatio <= 0) {
-      throw new Error("Risk-reward ratio must be greater than zero.");
-    }
-
-    if (!stopDistance) {
-      throw new Error("Stop distance unavailable for target calculation.");
-    }
-
-    if (action === "BUY") {
-      targetPrice = roundToTick(entryPrice + stopDistance * riskRewardRatio);
-    } else {
-      targetPrice = roundToTick(entryPrice - stopDistance * riskRewardRatio);
-    }
-
-    if (targetPrice <= 0) {
+    if (!targetPrice || targetPrice <= 0) {
       throw new Error("Calculated target price is invalid.");
     }
   }
@@ -3878,41 +4509,6 @@ function buildPresetEntryPayload(plan, groupTag) {
   };
 }
 
-function buildPresetExitPayloads(plan, groupTag) {
-  const exitAction = plan.action === "BUY" ? "SELL" : "BUY";
-  const payloads = [];
-
-  if (presetSettings.placeStopLoss && plan.stopLossPrice) {
-    payloads.push({
-      ACTION: exitAction,
-      SYMBOL: plan.symbol,
-      QUANTITY: plan.quantity,
-      ORDERTYPE: "stoploss",
-      PRICE: 0,
-      TRIGGERPRICE: plan.stopLossPrice,
-      VALIDITY: "day",
-      TAG: groupTag,
-      TIMESTAMP: Date.now()
-    });
-  }
-
-  if (presetSettings.placeTarget && plan.targetPrice) {
-    payloads.push({
-      ACTION: exitAction,
-      SYMBOL: plan.symbol,
-      QUANTITY: plan.quantity,
-      ORDERTYPE: "limit",
-      PRICE: plan.targetPrice,
-      TRIGGERPRICE: 0,
-      VALIDITY: "day",
-      TAG: groupTag,
-      TIMESTAMP: Date.now()
-    });
-  }
-
-  return payloads;
-}
-
 async function sendTradePayload(payload) {
   const res = await apiFetch(`${base_url}/api/trade/place-order`, {
     method: "POST",
@@ -3938,10 +4534,11 @@ async function sendTradePayload(payload) {
   return data;
 }
 
-function buildPresetConfirmMessage(plan) {
+function buildPresetConfirmMessage(plan,product = "normal") {
   const lines = [
     `${plan.action} ${plan.symbol}`,
     "",
+    `Product: ${product.toUpperCase()}`,
     `Quantity: ${plan.quantity.toLocaleString("en-IN")}`,
     `Lots: ${plan.lots}`,
     `Entry: ${formatMoney(plan.entryPrice)}`,
@@ -3983,64 +4580,143 @@ async function placePresetOrder(action) {
     return;
   }
 
+  const product = getPresetOrderProduct(plan);
+
+  if (product === "bracket" && getActiveHoldings()) {
+    showToast("Bracket preset orders are allowed only when there is no active position.", "error");
+    return;
+  }
+
   if (presetSettings.confirmBeforeSend) {
-    const ok = confirm(buildPresetConfirmMessage(plan));
+    const ok = confirm(buildPresetConfirmMessage(plan, product));
     if (!ok) return;
   }
 
-  const groupTag = `PRESET_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-
-  const entryPayload = buildPresetEntryPayload(plan, groupTag);
-
   try {
-    const entryResponse = await sendTradePayload(entryPayload);
+    let response;
 
-    const status = String(
-      entryResponse.STATUS ||
-      entryResponse.status ||
-      ""
-    ).toLowerCase();
+    if (product === "bracket") {
+      response = await sendPresetBracketOrder(plan);
+    } else if (product === "cover") {
+      response = await sendPresetCoverOrder(plan);
+    } else {
+      response = await sendTradePayload(buildPresetEntryPayload(plan, ""));
+    }
 
-    showToast(`${plan.action} preset order ${status || "sent"}`, "success");
+    showToast(
+      response.MESSAGE ||
+      response.Message ||
+      `${plan.action} ${product} preset order sent`,
+      "success"
+    );
 
     await loadUserData();
     await fetchOrderBook();
-
-    if (status === "filled") {
-      await placePresetExitOrders(plan, groupTag);
-    } else {
-      showToast("Preset entry was not filled yet, exits were not placed.", "info");
-    }
-
+    plotOrderLines();
     clearOrderForm(false);
   } catch (err) {
     console.error(err);
     showToast(err.message || "Preset order failed", "error");
   }
 }
+function getPresetOrderProduct(plan) {
+  const hasStopLoss =
+    !!presetSettings.placeStopLoss &&
+    !!plan.stopLossPrice &&
+    Number(plan.stopLossPrice) > 0;
 
-async function placePresetExitOrders(plan, groupTag) {
-  const exitPayloads = buildPresetExitPayloads(plan, groupTag);
+  const hasTarget =
+    !!presetSettings.placeTarget &&
+    !!presetSettings.targetEnabled &&
+    !!plan.targetPrice &&
+    Number(plan.targetPrice) > 0;
 
-  if (!exitPayloads.length) return;
-
-  let successCount = 0;
-
-  for (const payload of exitPayloads) {
-    try {
-      await sendTradePayload(payload);
-      successCount++;
-    } catch (err) {
-      console.error("Preset exit order failed:", err);
-      showToast(err.message || "Preset exit order failed", "error");
-    }
+  if (hasStopLoss && hasTarget) {
+    return "bracket";
   }
 
-  if (successCount > 0) {
-    showToast(`${successCount} preset exit order(s) placed`, "success");
-    await fetchOrderBook();
+  if (hasStopLoss) {
+    return "cover";
   }
+
+  return "normal";
 }
+async function sendPresetBracketOrder(plan) {
+  const payload = {
+    Action: plan.action,
+    Symbol: plan.symbol,
+    Quantity: plan.quantity,
+    EntryType: "MARKET",
+    EntryPrice: null,
+    StopLossTriggerPrice: plan.stopLossPrice,
+    TargetPrice: plan.targetPrice,
+    Validity: "DAY",
+    TimeStamp: Date.now()
+  };
+
+  const res = await apiFetch(`${base_url}/api/trade/place-bracket-order`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.MESSAGE ||
+      data.Message ||
+      data.message ||
+      data.ERROR ||
+      data.Error ||
+      data.error ||
+      (data.ERRORS || data.Errors || []).join(", ") ||
+      "Bracket preset order failed"
+    );
+  }
+
+  return data;
+}
+async function sendPresetCoverOrder(plan) {
+  const payload = {
+    Action: plan.action,
+    Symbol: plan.symbol,
+    Quantity: plan.quantity,
+    EntryType: "MARKET",
+    EntryPrice: null,
+    StopLossTriggerPrice: plan.stopLossPrice,
+    Validity: "DAY",
+    TimeStamp: Date.now()
+  };
+
+  const res = await apiFetch(`${base_url}/api/trade/place-cover-order`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      data.MESSAGE ||
+      data.Message ||
+      data.message ||
+      data.ERROR ||
+      data.Error ||
+      data.error ||
+      (data.ERRORS || data.Errors || []).join(", ") ||
+      "Cover preset order failed"
+    );
+  }
+
+  return data;
+}
+
 function setupKeyboardShortcuts() {
   document.addEventListener("keydown", e => {
     const tag = e.target.tagName, isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT", key = e.key.toLowerCase(), ctrlOrCmd = e.ctrlKey || e.metaKey; if (e.repeat) return; if (key === "?" && !isTyping) {
@@ -4620,20 +5296,56 @@ function closePresetModal() {
 function renderPresetSettingsToModal() {
   if (!els.presetModal) return;
 
-  els.presetBudgetEnabled.checked = presetSettings.budgetEnabled;
+  els.presetBudgetEnabled.checked = !!presetSettings.budgetEnabled;
   els.presetBudgetAmount.value = presetSettings.budgetAmount || "";
 
-  els.presetRiskEnabled.checked = presetSettings.riskEnabled;
-  els.presetRiskAmount.value = presetSettings.riskAmount || "";
+  if (els.presetRiskEnabled) {
+    els.presetRiskEnabled.checked = !!presetSettings.riskEnabled;
+  }
+
+  if (els.presetRiskAmount) {
+    els.presetRiskAmount.value = presetSettings.riskAmount || "";
+  }
+
+  if (els.presetStopMode) {
+    els.presetStopMode.value = presetSettings.stopMode || "percent";
+  }
+
+  if (els.presetStopPercent) {
+    els.presetStopPercent.value = presetSettings.stopPercent || 1;
+  }
+
+  if (els.presetFixedStopAmount) {
+    els.presetFixedStopAmount.value = presetSettings.fixedStopAmount || 5;
+  }
+
   els.presetAtrPeriod.value = presetSettings.atrPeriod || 14;
   els.presetAtrMultiplier.value = presetSettings.atrMultiplier || 1.5;
 
-  els.presetTargetEnabled.checked = presetSettings.targetEnabled;
+  els.presetTargetEnabled.checked = !!presetSettings.targetEnabled;
+
+  if (els.presetTargetMode) {
+    els.presetTargetMode.value = presetSettings.targetMode || "rr";
+  }
+
   els.presetRiskRewardRatio.value = presetSettings.riskRewardRatio || 2;
 
-  els.presetPlaceStopLoss.checked = presetSettings.placeStopLoss;
-  els.presetPlaceTarget.checked = presetSettings.placeTarget;
-  els.presetConfirm.checked = presetSettings.confirmBeforeSend;
+  if (els.presetTargetPercent) {
+    els.presetTargetPercent.value = presetSettings.targetPercent || 2;
+  }
+
+  if (els.presetFixedTargetAmount) {
+    els.presetFixedTargetAmount.value = presetSettings.fixedTargetAmount || 10;
+  }
+
+  els.presetPlaceStopLoss.checked = !!presetSettings.placeStopLoss;
+  els.presetPlaceTarget.checked = !!presetSettings.placeTarget;
+
+  if (els.presetApplyToChartStrategies) {
+    els.presetApplyToChartStrategies.checked = presetSettings.applyToChartStrategies !== false;
+  }
+
+  els.presetConfirm.checked = !!presetSettings.confirmBeforeSend;
 
   updatePresetFieldStates();
   setPresetValidation("");
@@ -4641,63 +5353,84 @@ function renderPresetSettingsToModal() {
 
 function readPresetSettingsFromModal() {
   return {
-    budgetEnabled: els.presetBudgetEnabled.checked,
+    budgetEnabled: !!els.presetBudgetEnabled.checked,
     budgetAmount: Number(els.presetBudgetAmount.value || 0),
 
-    riskEnabled: els.presetRiskEnabled.checked,
-    riskAmount: Number(els.presetRiskAmount.value || 0),
+    riskEnabled: !!els.presetRiskEnabled?.checked,
+    riskAmount: Number(els.presetRiskAmount?.value || 0),
+
+    stopMode: els.presetStopMode?.value || "percent",
+    stopPercent: Number(els.presetStopPercent?.value || 1),
+    fixedStopAmount: Number(els.presetFixedStopAmount?.value || 5),
+
     atrPeriod: Number(els.presetAtrPeriod.value || 14),
     atrMultiplier: Number(els.presetAtrMultiplier.value || 1.5),
 
-    targetEnabled: els.presetTargetEnabled.checked,
-    riskRewardRatio: Number(els.presetRiskRewardRatio.value || 2),
+    targetEnabled: !!els.presetTargetEnabled.checked,
+    targetMode: els.presetTargetMode?.value || "rr",
 
-    placeStopLoss: els.presetPlaceStopLoss.checked,
-    placeTarget: els.presetPlaceTarget.checked,
-    confirmBeforeSend: els.presetConfirm.checked
+    riskRewardRatio: Number(els.presetRiskRewardRatio.value || 2),
+    targetPercent: Number(els.presetTargetPercent?.value || 2),
+    fixedTargetAmount: Number(els.presetFixedTargetAmount?.value || 10),
+
+    placeStopLoss: !!els.presetPlaceStopLoss.checked,
+    placeTarget: !!els.presetPlaceTarget.checked,
+
+    applyToChartStrategies: els.presetApplyToChartStrategies
+      ? !!els.presetApplyToChartStrategies.checked
+      : true,
+
+    confirmBeforeSend: !!els.presetConfirm.checked
   };
 }
 
 function validatePresetSettings(settings) {
-  if (!settings.budgetEnabled && !settings.riskEnabled) {
-    return "Enable Budget cap or ATR risk control before saving.";
-  }
-
   if (settings.budgetEnabled && settings.budgetAmount <= 0) {
     return "Budget amount is required when Budget cap is enabled.";
   }
 
   if (settings.riskEnabled && settings.riskAmount <= 0) {
-    return "Risk amount is required when ATR risk control is enabled.";
+    return "Risk amount is required when risk sizing is enabled.";
   }
 
-  if (settings.riskEnabled && settings.atrPeriod < 2) {
-    return "ATR period must be at least 2.";
+  if (settings.stopMode === "percent" && settings.stopPercent <= 0) {
+    return "Stop percent must be greater than zero.";
   }
 
-  if (settings.riskEnabled && settings.atrMultiplier <= 0) {
-    return "ATR multiplier must be greater than zero.";
+  if (settings.stopMode === "fixed" && settings.fixedStopAmount <= 0) {
+    return "Fixed stop amount must be greater than zero.";
   }
 
-  if (settings.targetEnabled && !settings.riskEnabled) {
-    return "Target by R:R requires ATR risk control.";
+  if (settings.stopMode === "atr") {
+    if (settings.atrPeriod < 2) {
+      return "ATR period must be at least 2.";
+    }
+
+    if (settings.atrMultiplier <= 0) {
+      return "ATR multiplier must be greater than zero.";
+    }
   }
 
-  if (settings.targetEnabled && settings.riskRewardRatio <= 0) {
-    return "Risk-reward ratio must be greater than zero.";
+  if (settings.placeTarget && !settings.placeStopLoss) {
+    return "Target order requires stop-loss. Enable Place stop-loss order to use bracket presets.";
   }
 
-  if (settings.placeStopLoss && !settings.riskEnabled) {
-    return "Stop-loss placement requires ATR risk control.";
-  }
+  if (settings.targetEnabled) {
+    if (settings.targetMode === "rr" && settings.riskRewardRatio <= 0) {
+      return "Risk-reward ratio must be greater than zero.";
+    }
 
-  if (settings.placeTarget && !settings.targetEnabled) {
-    return "Target placement requires Target by R:R.";
+    if (settings.targetMode === "percent" && settings.targetPercent <= 0) {
+      return "Target percent must be greater than zero.";
+    }
+
+    if (settings.targetMode === "fixed" && settings.fixedTargetAmount <= 0) {
+      return "Fixed target amount must be greater than zero.";
+    }
   }
 
   return "";
 }
-
 function setPresetValidation(message, type = "error") {
   if (!els.presetValidation) return;
 
@@ -4706,29 +5439,60 @@ function setPresetValidation(message, type = "error") {
 }
 
 function updatePresetFieldStates() {
-  const budgetEnabled = els.presetBudgetEnabled.checked;
-  const riskEnabled = els.presetRiskEnabled.checked;
-  const targetEnabled = els.presetTargetEnabled.checked;
+  const budgetEnabled = !!els.presetBudgetEnabled?.checked;
+  const riskEnabled = !!els.presetRiskEnabled?.checked;
+  const targetEnabled = !!els.presetTargetEnabled?.checked;
 
-  els.presetBudgetAmount.disabled = !budgetEnabled;
+  const stopMode = els.presetStopMode?.value || "percent";
+  const targetMode = els.presetTargetMode?.value || "rr";
 
-  els.presetRiskAmount.disabled = !riskEnabled;
-  els.presetAtrPeriod.disabled = !riskEnabled;
-  els.presetAtrMultiplier.disabled = !riskEnabled;
-
-  els.presetTargetEnabled.disabled = !riskEnabled;
-  els.presetRiskRewardRatio.disabled = !targetEnabled || !riskEnabled;
-
-  els.presetPlaceStopLoss.disabled = !riskEnabled;
-  els.presetPlaceTarget.disabled = !targetEnabled || !riskEnabled;
-
-  if (!riskEnabled) {
-    els.presetTargetEnabled.checked = false;
-    els.presetPlaceStopLoss.checked = false;
-    els.presetPlaceTarget.checked = false;
+  if (els.presetBudgetAmount) {
+    els.presetBudgetAmount.disabled = !budgetEnabled;
   }
 
-  if (!targetEnabled) {
+  if (els.presetRiskAmount) {
+    els.presetRiskAmount.disabled = !riskEnabled;
+  }
+
+  if (els.presetStopPercent) {
+    els.presetStopPercent.disabled = stopMode !== "percent";
+  }
+
+  if (els.presetFixedStopAmount) {
+    els.presetFixedStopAmount.disabled = stopMode !== "fixed";
+  }
+
+  if (els.presetAtrPeriod) {
+    els.presetAtrPeriod.disabled = stopMode !== "atr";
+  }
+
+  if (els.presetAtrMultiplier) {
+    els.presetAtrMultiplier.disabled = stopMode !== "atr";
+  }
+
+  if (els.presetTargetMode) {
+    els.presetTargetMode.disabled = !targetEnabled;
+  }
+
+  if (els.presetRiskRewardRatio) {
+    els.presetRiskRewardRatio.disabled = !targetEnabled || targetMode !== "rr";
+  }
+
+  if (els.presetTargetPercent) {
+    els.presetTargetPercent.disabled = !targetEnabled || targetMode !== "percent";
+  }
+
+  if (els.presetFixedTargetAmount) {
+    els.presetFixedTargetAmount.disabled = !targetEnabled || targetMode !== "fixed";
+  }
+
+  const placeStopLoss = !!els.presetPlaceStopLoss?.checked;
+
+  if (els.presetPlaceTarget) {
+    els.presetPlaceTarget.disabled = !targetEnabled || !placeStopLoss;
+  }
+
+  if ((!targetEnabled || !placeStopLoss) && els.presetPlaceTarget) {
     els.presetPlaceTarget.checked = false;
   }
 }
@@ -4760,14 +5524,25 @@ function resetPresetSettings() {
 
     riskEnabled: false,
     riskAmount: 0,
+
+    stopMode: "percent",
+    stopPercent: 1,
+    fixedStopAmount: 5,
+
     atrPeriod: 14,
     atrMultiplier: 1.5,
 
-    targetEnabled: false,
+    targetEnabled: true,
+    targetMode: "rr",
+
     riskRewardRatio: 2,
+    targetPercent: 2,
+    fixedTargetAmount: 10,
 
     placeStopLoss: false,
     placeTarget: false,
+
+    applyToChartStrategies: true,
     confirmBeforeSend: true
   };
 

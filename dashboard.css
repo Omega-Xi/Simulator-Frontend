@@ -383,24 +383,24 @@ body.compactMode .orderBtn {
 
 body.compactMode .ticketGrid {
   grid-template-columns: 95px 110px 120px 1fr 1fr;
-  gap: 7px;
+  gap: 4px;
 }
 
 body.compactMode .ticketGrid input,
 body.compactMode .ticketGrid select {
-  height: 31px;
+  height: 24px;
 }
 
 body.compactMode .estimateBox {
-  min-height: 46px;
+  min-height: 30px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 5px;
+  gap: 3px;
 }
 
 body.compactMode .estItem {
-  height: 50px;
-  padding: 6px 7px;
-  font-size: 10px;
+  height: 28px;
+  padding: 1px 7px;
+  font-size: 9px;
 }
 
 body.compactMode .estItem b {
@@ -807,7 +807,8 @@ button:disabled {
   font-weight: 800;
 }
 
-.presetField input {
+.presetField input,
+.presetField select {
   height: 38px;
   border-radius: 11px;
   border: 1px solid var(--border-soft);
@@ -817,9 +818,15 @@ button:disabled {
   outline: none;
 }
 
-.presetField input:disabled {
+.presetField input:disabled,
+.presetField select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+.presetField select option {
+  background: #11161d;
+  color: #f5f7fa;
 }
 
 .presetGrid {
@@ -2019,4 +2026,114 @@ kbd {
   .orderTicket.bracketMode .ticketGrid {
     grid-template-columns: 1fr 1fr;
   }
+}
+
+.chartStrategyPopup {
+  position: absolute;
+  z-index: 70;
+  width: 260px;
+  padding: 11px;
+  border-radius: 15px;
+  background: rgba(9, 11, 15, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(16px);
+}
+
+.chartStrategyPopup.bracket {
+  width: 280px;
+  border-color: rgba(181, 108, 255, 0.34);
+}
+
+.chartStrategyPopup.cover {
+  border-color: rgba(77, 182, 255, 0.32);
+}
+
+.chartStrategySummary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.chartStrategySummary div {
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.chartStrategySummary span,
+.chartStrategyGrid span {
+  display: block;
+  color: var(--text-faint);
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 3px;
+}
+
+.chartStrategySummary b {
+  display: block;
+  color: var(--text-main);
+  font-size: 11px;
+}
+
+.chartStrategyGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.chartStrategyPopup.bracket .chartStrategyGrid {
+  grid-template-columns: 1fr 1fr;
+}
+
+.chartStrategyGrid input {
+  width: 100%;
+  height: 34px;
+  border-radius: 10px;
+  outline: none;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-panel-soft);
+  color: var(--text-main);
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+.chartStrategyGrid input:focus {
+  border-color: rgba(201, 169, 110, .48);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.chartStrategyRisk {
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 9px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: rgba(0, 192, 118, 0.08);
+  border: 1px solid rgba(0, 192, 118, 0.18);
+  color: var(--buy);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.chartStrategyRisk.danger {
+  background: var(--sell-soft);
+  border-color: rgba(255, 77, 90, 0.26);
+  color: var(--sell);
+}
+
+.chartStrategyPopup .chartOrderPlace {
+  background: linear-gradient(135deg, rgba(201, 169, 110, .88), rgba(217, 184, 122, .96));
+  color: #11161d;
+}
+
+.chartStrategyPopup.bracket .chartOrderPlace {
+  background: linear-gradient(135deg, #b56cff, #d2a8ff);
 }
