@@ -1391,6 +1391,17 @@ button:disabled {
   margin-top: 5px
 }
 
+.modifyTargetField.hidden {
+  display: none;
+}
+
+.modifyHint {
+  margin-top: 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
 .modifyActions {
   margin-top: 10px;
   display: flex;

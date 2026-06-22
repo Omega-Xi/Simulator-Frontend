@@ -40,7 +40,7 @@ let token = sessionStorage.getItem("token"), refreshPromise = null, ws = null, w
 let selectedsymbol = localStorage.getItem("tt_selectedSymbol") || "", currentLotSize = 0, selectedtimeframe = Number(localStorage.getItem("tt_timeframe") || 1),
   candleBuckets = {}, smaVisible = JSON.parse(localStorage.getItem("tt_smaVisible") ?? "true"), filledOrderVisible = JSON.parse(localStorage.getItem("tt_filledOrdersVisible") ?? "false"),
   crosshairActive = false, allOrders = [], pendingLines = [], triggerLines = [], avgPositionLines = [],
-  pnlPositionLines = [], allHoldings = [], currentOrderId = "", totalCashMargin = 0, selectedOrderSide = "BUY";
+  pnlPositionLines = [], allHoldings = [], currentOrderId = "", currentModifyOrder = null, totalCashMargin = 0, selectedOrderSide = "BUY";
 const allLTP = {}, allLTPPrevious = {}, watchlistStorageKey = "tt_watchlist", orderFilterState = {
   status: "all", search: "", sortBy: "time"
 };
@@ -3407,13 +3407,35 @@ function renderOrderBook(orders) {
     return
   }
   orders.forEach(order => {
-    const row = document.createElement("div"); row.classList.add("orderRow", String(order.STATUS || "").toLowerCase()); let displayPrice = "--", triggerInfo = "--"; if (order.ORDERTYPE !== "MARKET") {
-      displayPrice = order.PRICE != null ? fmtNum(order.PRICE) : "--"; if (order.ORDERTYPE === "STOPLIMIT" || order.ORDERTYPE === "STOPLOSS") triggerInfo = order.TRIGGERPRICE != null ? fmtNum(order.TRIGGERPRICE) : "--"
-    }
-    const exec = order.EXECUTEDPRICE != null ? fmtNum(order.EXECUTEDPRICE) : "--";
-    const action = String(order.ACTION || "").toUpperCase(); 
+    const row = document.createElement("div");
+    row.classList.add("orderRow", String(order.STATUS || "").toLowerCase());
+
+    const orderType = getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase();
     const strategy = getOrderStringField(order, "STRATEGYTYPE", "StrategyType", "strategyType");
     const purpose = getOrderStringField(order, "PURPOSE", "Purpose", "purpose");
+    const action = String(order.ACTION || "").toUpperCase();
+
+    let displayPrice = "--";
+    let triggerInfo = "--";
+
+    if (orderType !== "MARKET") {
+      displayPrice = getOrderNumberField(order, "PRICE", "Price", "price")
+        ? fmtNum(getOrderNumberField(order, "PRICE", "Price", "price"))
+        : "--";
+
+      if (orderType === "STOPLIMIT" || orderType === "STOPLOSS") {
+        const trigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
+        triggerInfo = trigger ? fmtNum(trigger) : "--";
+      }
+
+      if (strategy === "BRACKET" && purpose === "BRACKET_ENTRY") {
+        const stop = getBracketStopLossPrice(order);
+        const target = getBracketTargetPrice(order);
+        triggerInfo = `SL ${stop ? fmtNum(stop) : "--"} / TGT ${target ? fmtNum(target) : "--"}`;
+      }
+    }
+
+    const exec = order.EXECUTEDPRICE != null ? fmtNum(order.EXECUTEDPRICE) : "--";
     const strategyHtml = strategy || purpose
       ? `<span class="strategyChip">${strategy || "NORMAL"}${purpose ? ` · ${purpose}` : ""}</span>`
       : "";
@@ -3516,12 +3538,44 @@ async function cancelOrder(orderId, { refresh = true, silent = false } = {}) {
   }
 }
 function openModifyDropdown(order) {
-  currentOrderId = order.ORDERID;
-  document.getElementById("modifySymbol").textContent = `Modify — ${order.SYMBOL}`;
-  document.getElementById("modifyQty").value = order.QUANTITY || "";
-  document.getElementById("modifyPrice").value = order.PRICE ?? "";
-  document.getElementById("modifyTrigger").value = order.TRIGGERPRICE ?? "";
-  document.getElementById("modifyValidity").value = order.VALIDITY ?? "day";
+  currentModifyOrder = order;
+  currentOrderId = getOrderId(order);
+
+  const isBracketEntry = isPendingLimitBracketEntry(order);
+  const symbol = getOrderStringField(order, "SYMBOL", "Symbol", "symbol");
+
+  const priceLabel = document.getElementById("modifyPriceLabel");
+  const triggerLabel = document.getElementById("modifyTriggerLabel");
+  const targetField = document.getElementById("modifyTargetField");
+  const targetInput = document.getElementById("modifyTarget");
+  const hint = document.getElementById("modifyHint");
+
+  document.getElementById("modifySymbol").textContent = isBracketEntry
+    ? `Modify Bracket — ${symbol}`
+    : `Modify — ${symbol}`;
+
+  document.getElementById("modifyQty").value = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity") || "";
+  document.getElementById("modifyPrice").value = getOrderNumberField(order, "PRICE", "Price", "price") || "";
+  document.getElementById("modifyValidity").value = getOrderStringField(order, "VALIDITY", "Validity", "validity") || "day";
+
+  if (isBracketEntry) {
+    if (priceLabel) priceLabel.textContent = "Entry Price";
+    if (triggerLabel) triggerLabel.textContent = "Stop-loss";
+    if (targetField) targetField.classList.remove("hidden");
+    if (targetInput) targetInput.value = getBracketTargetPrice(order) || "";
+    if (hint) hint.textContent = "This updates the pending entry plus the stop-loss and target that will be created after entry fill.";
+
+    document.getElementById("modifyTrigger").value = getBracketStopLossPrice(order) || "";
+  } else {
+    if (priceLabel) priceLabel.textContent = "Price";
+    if (triggerLabel) triggerLabel.textContent = "Trigger";
+    if (targetField) targetField.classList.add("hidden");
+    if (targetInput) targetInput.value = "";
+    if (hint) hint.textContent = "";
+
+    document.getElementById("modifyTrigger").value = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice") || "";
+  }
+
   document.getElementById("modifyDropdown").classList.add("visible");
   setTimeout(() => {
     const q = document.getElementById("modifyQty"); q.focus(); q.select()
@@ -3529,10 +3583,92 @@ function openModifyDropdown(order) {
 }
 function closeModifyDropdown() {
   currentOrderId = "";
+  currentModifyOrder = null;
   document.getElementById("modifyDropdown").classList.remove("visible")
+}
+function buildStandardModificationPayload(order) {
+  return {
+    ORDERID: getOrderId(order),
+    QUANTITY: parseInt(document.getElementById("modifyQty").value, 10),
+    PRICE: document.getElementById("modifyPrice").value ? parseFloat(document.getElementById("modifyPrice").value) : null,
+    TRIGGERPRICE: document.getElementById("modifyTrigger").value ? parseFloat(document.getElementById("modifyTrigger").value) : null,
+    VALIDITY: document.getElementById("modifyValidity").value || "day",
+    TIMESTAMP: Date.now()
+  };
+}
+function buildBracketModificationPayload(order, overrides = {}) {
+  return {
+    OrderId: getOrderId(order),
+    Quantity: overrides.Quantity ?? parseInt(document.getElementById("modifyQty")?.value || getOrderNumberField(order, "QUANTITY", "Quantity", "quantity"), 10),
+    Price: overrides.Price ?? readNumberInputOrFallback("modifyPrice", getOrderNumberField(order, "PRICE", "Price", "price")),
+    StopLossPrice: overrides.StopLossPrice ?? readNumberInputOrFallback("modifyTrigger", getBracketStopLossPrice(order)),
+    TargetPrice: overrides.TargetPrice ?? readNumberInputOrFallback("modifyTarget", getBracketTargetPrice(order)),
+    Validity: overrides.Validity ?? (document.getElementById("modifyValidity")?.value || getOrderStringField(order, "VALIDITY", "Validity", "validity") || "DAY"),
+    TimeStamp: Date.now()
+  };
+}
+function readNumberInputOrFallback(inputId, fallback) {
+  const input = document.getElementById(inputId);
+  const value = input?.value;
+
+  if (value !== undefined && value !== null && value !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  return fallback;
+}
+function validateBracketModificationPayload(order, payload) {
+  const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
+
+  if (!payload.Quantity || payload.Quantity <= 0) return "Enter a valid quantity.";
+  if (!payload.Price || payload.Price <= 0) return "Enter a valid bracket entry price.";
+  if (!payload.StopLossPrice || payload.StopLossPrice <= 0) return "Enter a valid stop-loss price.";
+  if (!payload.TargetPrice || payload.TargetPrice <= 0) return "Enter a valid target price.";
+
+  if (action === "BUY") {
+    if (payload.StopLossPrice >= payload.Price) return "For a BUY bracket, stop-loss must be below entry price.";
+    if (payload.TargetPrice <= payload.Price) return "For a BUY bracket, target must be above entry price.";
+  }
+
+  if (action === "SELL") {
+    if (payload.StopLossPrice <= payload.Price) return "For a SELL bracket, stop-loss must be above entry price.";
+    if (payload.TargetPrice >= payload.Price) return "For a SELL bracket, target must be below entry price.";
+  }
+
+  if (payload.StopLossPrice === payload.TargetPrice) return "Stop-loss and target cannot be the same price.";
+
+  return "";
+}
+function getModifyRequestConfig(order) {
+  if (isPendingLimitBracketEntry(order)) {
+    return {
+      url: `${base_url}/api/trade/modify-bracket-order`,
+      method: "POST"
+    };
+  }
+
+  return {
+    url: `${base_url}/api/trade/modify-order`,
+    method: "PUT"
+  };
 }
 function buildChartModifyPayload(item, newPrice) {
   const order = item.order;
+
+  if (isPendingLimitBracketEntry(order)) {
+    const overrides = {};
+
+    if (item.kind === "bracket-stop") {
+      overrides.StopLossPrice = newPrice;
+    } else if (item.kind === "bracket-target") {
+      overrides.TargetPrice = newPrice;
+    } else {
+      overrides.Price = newPrice;
+    }
+
+    return buildBracketModificationPayload(order, overrides);
+  }
 
   const currentPrice = getOrderNumberField(order, "PRICE", "Price", "price");
   const currentTrigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
@@ -3557,9 +3693,15 @@ function buildChartModifyPayload(item, newPrice) {
 }
 async function modifyOrderFromChartLine(item, newPrice) {
   const payload = buildChartModifyPayload(item, newPrice);
+  const config = getModifyRequestConfig(item.order);
 
-  const response = await apiFetch(`${base_url}/api/trade/modify-order`, {
-    method: "PUT",
+  if (isPendingLimitBracketEntry(item.order)) {
+    const validationError = validateBracketModificationPayload(item.order, payload);
+    if (validationError) throw new Error(validationError);
+  }
+
+  const response = await apiFetch(config.url, {
+    method: config.method,
     headers: {
       "Content-Type": "application/json"
     },
@@ -3572,26 +3714,45 @@ async function modifyOrderFromChartLine(item, newPrice) {
 
   const result = await response.json().catch(() => ({}));
 
-  showToast(result.MESSAGE || result.message || "Order modified from chart", "success");
+  showToast(result.MESSAGE || result.Message || result.message || "Order modified from chart", "success");
 
   await fetchOrderBook();
 }
 async function modifyOrder() {
-  const payload = {
-    ORDERID: currentOrderId, QUANTITY: parseInt(document.getElementById("modifyQty").value, 10), PRICE: document.getElementById("modifyPrice").value ? parseFloat(document.getElementById("modifyPrice").value) : null,
-    TRIGGERPRICE: document.getElementById("modifyTrigger").value ? parseFloat(document.getElementById("modifyTrigger").value) : null,
-    VALIDITY: document.getElementById("modifyValidity").value || "day", TIMESTAMP: Date.now()
-  };
-  try {
-    const res = await apiFetch(`${base_url}/api/trade/modify-order`, {
-      method: "PUT", headers: {
-        "Content-Type": "application/json"
-      }, body: JSON.stringify(payload)
+  const order = currentModifyOrder || allOrders.find(o => getOrderId(o) === currentOrderId);
+
+  if (!order) {
+    showToast("Select an order to modify", "error");
+    return;
+  }
+
+  const isBracketEntry = isPendingLimitBracketEntry(order);
+  const payload = isBracketEntry
+    ? buildBracketModificationPayload(order)
+    : buildStandardModificationPayload(order);
+
+  if (isBracketEntry) {
+    const validationError = validateBracketModificationPayload(order, payload);
+    if (validationError) {
+      showToast(validationError, "error");
+      return;
     }
-    );
+  }
+
+  const config = getModifyRequestConfig(order);
+
+  try {
+    const res = await apiFetch(config.url, {
+      method: config.method,
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
     if (!res.ok) throw new Error(await readResponseError(res));
-    const result = await res.json();
-    showToast(result.MESSAGE || "Order modified", "success");
+    const result = await res.json().catch(() => ({}));
+    showToast(result.MESSAGE || result.Message || result.message || "Order modified", "success");
     closeModifyDropdown();
     await fetchOrderBook()
   }
@@ -3794,27 +3955,59 @@ function getOrderStringField(order, ...keys) {
 function getOrderId(order) {
   return getOrderStringField(order, "ORDERID", "OrderId", "orderId");
 }
-function createOrderLineItem(order, kind) {
+function getBracketStopLossPrice(order) {
+  return getOrderNumberField(
+    order,
+    "CHILDSTOPLOSSTRIGGERPRICE",
+    "ChildStopLossTriggerPrice",
+    "childStopLossTriggerPrice"
+  );
+}
+function getBracketTargetPrice(order) {
+  return getOrderNumberField(
+    order,
+    "CHILDTARGETPRICE",
+    "ChildTargetPrice",
+    "childTargetPrice"
+  );
+}
+function isPendingLimitBracketEntry(order) {
+  return getOrderStringField(order, "STRATEGYTYPE", "StrategyType", "strategyType").toUpperCase() === "BRACKET" &&
+    getOrderStringField(order, "PURPOSE", "Purpose", "purpose").toUpperCase() === "BRACKET_ENTRY" &&
+    getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase() === "LIMIT" &&
+    getOrderStringField(order, "STATUS", "Status", "status").toLowerCase() === "pending";
+}
+function createOrderLineItem(order, kind, explicitPrice = null) {
   const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
   const quantity = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
 
-  const price = kind === "trigger"
-    ? getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice")
-    : getOrderNumberField(order, "PRICE", "Price", "price");
+  let price = explicitPrice;
+
+  if (!price) {
+    price = kind === "trigger" || kind === "bracket-stop"
+      ? getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice")
+      : getOrderNumberField(order, "PRICE", "Price", "price");
+  }
 
   if (!price || price <= 0) return null;
 
-  const isTrigger = kind === "trigger";
+  const isTrigger = kind === "trigger" || kind === "bracket-stop";
+  const isBracketTarget = kind === "bracket-target";
 
   const color = isTrigger
     ? "#b56cff"
-    : action === "BUY"
-      ? "#00c076"
-      : "#ff4d5a";
+    : isBracketTarget
+      ? "#c9a96e"
+      : action === "BUY"
+        ? "#00c076"
+        : "#ff4d5a";
 
-  const title = isTrigger
-    ? `↕ Trigger ${action} ${quantity}`
-    : `↕ Pending ${action} ${quantity}`;
+  let title = `↕ Pending ${action} ${quantity}`;
+
+  if (kind === "trigger") title = `↕ Trigger ${action} ${quantity}`;
+  if (kind === "bracket-entry") title = `↕ Bracket Entry ${action} ${quantity}`;
+  if (kind === "bracket-stop") title = `↕ Bracket SL ${action} ${quantity}`;
+  if (kind === "bracket-target") title = `↕ Bracket TGT ${action} ${quantity}`;
 
   const line = candleSeries.createPriceLine({
     price,
@@ -3845,6 +4038,18 @@ function plotOrderLines() {
     const orderType = getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase();
 
     if (orderType === "MARKET") return;
+
+    if (isPendingLimitBracketEntry(order)) {
+      const entry = createOrderLineItem(order, "bracket-entry", getOrderNumberField(order, "PRICE", "Price", "price"));
+      const stop = createOrderLineItem(order, "bracket-stop", getBracketStopLossPrice(order));
+      const target = createOrderLineItem(order, "bracket-target", getBracketTargetPrice(order));
+
+      [entry, stop, target].forEach(item => {
+        if (item) pendingLines.push(item);
+      });
+
+      return;
+    }
 
     const price = getOrderNumberField(order, "PRICE", "Price", "price");
     const trigger = getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
@@ -3942,16 +4147,28 @@ function isCancellableOrder(order) {
   const status = String(order?.STATUS || "").toLowerCase();
   return status === "pending" || status === "triggerpending";
 }
-function describeOrder(order) {
+function describeOrder(order, kind = "") {
   const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
   const symbol = getOrderStringField(order, "SYMBOL", "Symbol", "symbol");
   const qty = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
 
-  const price =
+  let price =
     getOrderNumberField(order, "PRICE", "Price", "price") ||
     getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice");
 
-  return `${action} ${symbol} · Qty ${qty} · ${price ? formatMoney(price) : "Market"}`;
+  let label = "Order";
+
+  if (kind === "bracket-entry") {
+    label = "Bracket entry";
+  } else if (kind === "bracket-stop") {
+    label = "Bracket stop-loss";
+    price = getBracketStopLossPrice(order);
+  } else if (kind === "bracket-target") {
+    label = "Bracket target";
+    price = getBracketTargetPrice(order);
+  }
+
+  return `${label}: ${action} ${symbol} · Qty ${qty} · ${price ? formatMoney(price) : "Market"}`;
 }
 function closeOrderLineCancelPopup() {
   document.querySelectorAll(".orderLineCancelPopup").forEach(popup => {
@@ -3984,7 +4201,7 @@ function showOrderLineCancelPopup(item, x, y) {
   orderLineCancelPopup = popup;
   popup.innerHTML = `
     <div class="cancelPopupTitle">Order action</div>
-    <div class="cancelPopupDesc">${describeOrder(item.order)}</div>
+    <div class="cancelPopupDesc">${describeOrder(item.order, item.kind)}</div>
     <div class="cancelPopupActions">
       <button type="button" class="softBtn" data-modify-order>Modify</button>
       <button type="button" class="dangerSoftBtn" data-cancel-order>Cancel</button>
@@ -4020,7 +4237,7 @@ async function cancelHoveredOrderLine() {
     return;
   }
 
-  const ok = confirm(`Cancel this order?\n\n${describeOrder(item.order)}`);
+  const ok = confirm(`Cancel this order?\n\n${describeOrder(item.order, item.kind)}`);
   if (!ok) return;
 
   await cancelOrder(item.orderId);
@@ -4214,6 +4431,18 @@ function buildDraggedOrderLineTitle(item, price) {
 
   if (item.kind === "trigger") {
     return `↕ Trigger ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  if (item.kind === "bracket-entry") {
+    return `↕ Bracket Entry ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  if (item.kind === "bracket-stop") {
+    return `↕ Bracket SL ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  if (item.kind === "bracket-target") {
+    return `↕ Bracket TGT ${action} ${qty} @ ${fmtNum(price)}`;
   }
 
   return `↕ Pending ${action} ${qty} @ ${fmtNum(price)}`;

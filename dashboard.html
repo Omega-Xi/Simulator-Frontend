@@ -186,12 +186,19 @@
         <div class="modifyTitle">
           <h4 id="modifySymbol">Modify Order</h4><button onclick="closeModifyDropdown()">×</button>
         </div>
-        <div class="modifyGrid"><label>Quantity <input type="number" id="modifyQty" /></label><label>Price <input
-              type="number" id="modifyPrice" step="0.05" /></label><label>Trigger <input type="number"
-              id="modifyTrigger" step="0.05" /></label><label>Validity <select id="modifyValidity">
+        <div class="modifyGrid">
+          <label><span id="modifyQtyLabel">Quantity</span><input type="number" id="modifyQty" /></label>
+          <label><span id="modifyPriceLabel">Price</span><input type="number" id="modifyPrice" step="0.05" /></label>
+          <label><span id="modifyTriggerLabel">Trigger</span><input type="number" id="modifyTrigger" step="0.05" /></label>
+          <label id="modifyTargetField" class="modifyTargetField hidden"><span id="modifyTargetLabel">Target</span><input
+              type="number" id="modifyTarget" step="0.05" /></label>
+          <label>Validity <select id="modifyValidity">
               <option value="day">Day</option>
               <option value="IOC">IOC</option>
-            </select></label></div>
+              <option value="GTC">GTC</option>
+            </select></label>
+        </div>
+        <div id="modifyHint" class="modifyHint"></div>
         <div class="modifyActions"><button class="softBtn" onclick="closeModifyDropdown()">Cancel</button><button
             class="primaryBtn" onclick="modifyOrder()">Confirm</button></div>
       </div>
