@@ -3429,9 +3429,12 @@ function renderOrderBook(orders) {
       }
 
       if (strategy === "BRACKET" && purpose === "BRACKET_ENTRY") {
-        const stop = getBracketStopLossPrice(order);
+        const stop = getStrategyStopLossPrice(order);
         const target = getBracketTargetPrice(order);
         triggerInfo = `SL ${stop ? fmtNum(stop) : "--"} / TGT ${target ? fmtNum(target) : "--"}`;
+      } else if (strategy === "COVER" && purpose === "COVER_ENTRY") {
+        const stop = getStrategyStopLossPrice(order);
+        triggerInfo = `SL ${stop ? fmtNum(stop) : "--"}`;
       }
     }
 
@@ -3542,6 +3545,8 @@ function openModifyDropdown(order) {
   currentOrderId = getOrderId(order);
 
   const isBracketEntry = isPendingLimitBracketEntry(order);
+  const isCoverEntry = isPendingLimitCoverEntry(order);
+  const isStrategyEntry = isBracketEntry || isCoverEntry;
   const symbol = getOrderStringField(order, "SYMBOL", "Symbol", "symbol");
 
   const priceLabel = document.getElementById("modifyPriceLabel");
@@ -3552,20 +3557,26 @@ function openModifyDropdown(order) {
 
   document.getElementById("modifySymbol").textContent = isBracketEntry
     ? `Modify Bracket — ${symbol}`
-    : `Modify — ${symbol}`;
+    : isCoverEntry
+      ? `Modify Cover — ${symbol}`
+      : `Modify — ${symbol}`;
 
   document.getElementById("modifyQty").value = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity") || "";
   document.getElementById("modifyPrice").value = getOrderNumberField(order, "PRICE", "Price", "price") || "";
   document.getElementById("modifyValidity").value = getOrderStringField(order, "VALIDITY", "Validity", "validity") || "day";
 
-  if (isBracketEntry) {
+  if (isStrategyEntry) {
     if (priceLabel) priceLabel.textContent = "Entry Price";
     if (triggerLabel) triggerLabel.textContent = "Stop-loss";
-    if (targetField) targetField.classList.remove("hidden");
-    if (targetInput) targetInput.value = getBracketTargetPrice(order) || "";
-    if (hint) hint.textContent = "This updates the pending entry plus the stop-loss and target that will be created after entry fill.";
+    if (targetField) targetField.classList.toggle("hidden", !isBracketEntry);
+    if (targetInput) targetInput.value = isBracketEntry ? (getBracketTargetPrice(order) || "") : "";
+    if (hint) {
+      hint.textContent = isBracketEntry
+        ? "This updates the pending entry plus the stop-loss and target that will be created after entry fill."
+        : "This updates the pending cover entry plus the stop-loss that will be created after entry fill.";
+    }
 
-    document.getElementById("modifyTrigger").value = getBracketStopLossPrice(order) || "";
+    document.getElementById("modifyTrigger").value = getStrategyStopLossPrice(order) || "";
   } else {
     if (priceLabel) priceLabel.textContent = "Price";
     if (triggerLabel) triggerLabel.textContent = "Trigger";
@@ -3601,8 +3612,18 @@ function buildBracketModificationPayload(order, overrides = {}) {
     OrderId: getOrderId(order),
     Quantity: overrides.Quantity ?? parseInt(document.getElementById("modifyQty")?.value || getOrderNumberField(order, "QUANTITY", "Quantity", "quantity"), 10),
     Price: overrides.Price ?? readNumberInputOrFallback("modifyPrice", getOrderNumberField(order, "PRICE", "Price", "price")),
-    StopLossPrice: overrides.StopLossPrice ?? readNumberInputOrFallback("modifyTrigger", getBracketStopLossPrice(order)),
+    StopLossPrice: overrides.StopLossPrice ?? readNumberInputOrFallback("modifyTrigger", getStrategyStopLossPrice(order)),
     TargetPrice: overrides.TargetPrice ?? readNumberInputOrFallback("modifyTarget", getBracketTargetPrice(order)),
+    Validity: overrides.Validity ?? (document.getElementById("modifyValidity")?.value || getOrderStringField(order, "VALIDITY", "Validity", "validity") || "DAY"),
+    TimeStamp: Date.now()
+  };
+}
+function buildCoverModificationPayload(order, overrides = {}) {
+  return {
+    OrderId: getOrderId(order),
+    Quantity: overrides.Quantity ?? parseInt(document.getElementById("modifyQty")?.value || getOrderNumberField(order, "QUANTITY", "Quantity", "quantity"), 10),
+    Price: overrides.Price ?? readNumberInputOrFallback("modifyPrice", getOrderNumberField(order, "PRICE", "Price", "price")),
+    StopLossPrice: overrides.StopLossPrice ?? readNumberInputOrFallback("modifyTrigger", getStrategyStopLossPrice(order)),
     Validity: overrides.Validity ?? (document.getElementById("modifyValidity")?.value || getOrderStringField(order, "VALIDITY", "Validity", "validity") || "DAY"),
     TimeStamp: Date.now()
   };
@@ -3640,11 +3661,35 @@ function validateBracketModificationPayload(order, payload) {
 
   return "";
 }
+function validateCoverModificationPayload(order, payload) {
+  const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
+
+  if (!payload.Quantity || payload.Quantity <= 0) return "Enter a valid quantity.";
+  if (!payload.Price || payload.Price <= 0) return "Enter a valid cover entry price.";
+  if (!payload.StopLossPrice || payload.StopLossPrice <= 0) return "Enter a valid stop-loss price.";
+
+  if (action === "BUY" && payload.StopLossPrice >= payload.Price) {
+    return "For a BUY cover order, stop-loss must be below entry price.";
+  }
+
+  if (action === "SELL" && payload.StopLossPrice <= payload.Price) {
+    return "For a SELL cover order, stop-loss must be above entry price.";
+  }
+
+  return "";
+}
 function getModifyRequestConfig(order) {
   if (isPendingLimitBracketEntry(order)) {
     return {
       url: `${base_url}/api/trade/modify-bracket-order`,
-      method: "POST"
+      method: "PUT"
+    };
+  }
+
+  if (isPendingLimitCoverEntry(order)) {
+    return {
+      url: `${base_url}/api/trade/modify-cover-order`,
+      method: "PUT"
     };
   }
 
@@ -3668,6 +3713,18 @@ function buildChartModifyPayload(item, newPrice) {
     }
 
     return buildBracketModificationPayload(order, overrides);
+  }
+
+  if (isPendingLimitCoverEntry(order)) {
+    const overrides = {};
+
+    if (item.kind === "cover-stop") {
+      overrides.StopLossPrice = newPrice;
+    } else {
+      overrides.Price = newPrice;
+    }
+
+    return buildCoverModificationPayload(order, overrides);
   }
 
   const currentPrice = getOrderNumberField(order, "PRICE", "Price", "price");
@@ -3700,6 +3757,11 @@ async function modifyOrderFromChartLine(item, newPrice) {
     if (validationError) throw new Error(validationError);
   }
 
+  if (isPendingLimitCoverEntry(item.order)) {
+    const validationError = validateCoverModificationPayload(item.order, payload);
+    if (validationError) throw new Error(validationError);
+  }
+
   const response = await apiFetch(config.url, {
     method: config.method,
     headers: {
@@ -3727,12 +3789,23 @@ async function modifyOrder() {
   }
 
   const isBracketEntry = isPendingLimitBracketEntry(order);
+  const isCoverEntry = isPendingLimitCoverEntry(order);
   const payload = isBracketEntry
     ? buildBracketModificationPayload(order)
-    : buildStandardModificationPayload(order);
+    : isCoverEntry
+      ? buildCoverModificationPayload(order)
+      : buildStandardModificationPayload(order);
 
   if (isBracketEntry) {
     const validationError = validateBracketModificationPayload(order, payload);
+    if (validationError) {
+      showToast(validationError, "error");
+      return;
+    }
+  }
+
+  if (isCoverEntry) {
+    const validationError = validateCoverModificationPayload(order, payload);
     if (validationError) {
       showToast(validationError, "error");
       return;
@@ -3955,13 +4028,16 @@ function getOrderStringField(order, ...keys) {
 function getOrderId(order) {
   return getOrderStringField(order, "ORDERID", "OrderId", "orderId");
 }
-function getBracketStopLossPrice(order) {
+function getStrategyStopLossPrice(order) {
   return getOrderNumberField(
     order,
     "CHILDSTOPLOSSTRIGGERPRICE",
     "ChildStopLossTriggerPrice",
     "childStopLossTriggerPrice"
   );
+}
+function getBracketStopLossPrice(order) {
+  return getStrategyStopLossPrice(order);
 }
 function getBracketTargetPrice(order) {
   return getOrderNumberField(
@@ -3977,6 +4053,12 @@ function isPendingLimitBracketEntry(order) {
     getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase() === "LIMIT" &&
     getOrderStringField(order, "STATUS", "Status", "status").toLowerCase() === "pending";
 }
+function isPendingLimitCoverEntry(order) {
+  return getOrderStringField(order, "STRATEGYTYPE", "StrategyType", "strategyType").toUpperCase() === "COVER" &&
+    getOrderStringField(order, "PURPOSE", "Purpose", "purpose").toUpperCase() === "COVER_ENTRY" &&
+    getOrderStringField(order, "ORDERTYPE", "OrderType", "orderType").toUpperCase() === "LIMIT" &&
+    getOrderStringField(order, "STATUS", "Status", "status").toLowerCase() === "pending";
+}
 function createOrderLineItem(order, kind, explicitPrice = null) {
   const action = getOrderStringField(order, "ACTION", "Action", "action").toUpperCase();
   const quantity = getOrderNumberField(order, "QUANTITY", "Quantity", "quantity");
@@ -3984,14 +4066,14 @@ function createOrderLineItem(order, kind, explicitPrice = null) {
   let price = explicitPrice;
 
   if (!price) {
-    price = kind === "trigger" || kind === "bracket-stop"
+    price = kind === "trigger" || kind === "bracket-stop" || kind === "cover-stop"
       ? getOrderNumberField(order, "TRIGGERPRICE", "TriggerPrice", "triggerPrice")
       : getOrderNumberField(order, "PRICE", "Price", "price");
   }
 
   if (!price || price <= 0) return null;
 
-  const isTrigger = kind === "trigger" || kind === "bracket-stop";
+  const isTrigger = kind === "trigger" || kind === "bracket-stop" || kind === "cover-stop";
   const isBracketTarget = kind === "bracket-target";
 
   const color = isTrigger
@@ -4008,6 +4090,8 @@ function createOrderLineItem(order, kind, explicitPrice = null) {
   if (kind === "bracket-entry") title = `↕ Bracket Entry ${action} ${quantity}`;
   if (kind === "bracket-stop") title = `↕ Bracket SL ${action} ${quantity}`;
   if (kind === "bracket-target") title = `↕ Bracket TGT ${action} ${quantity}`;
+  if (kind === "cover-entry") title = `↕ Cover Entry ${action} ${quantity}`;
+  if (kind === "cover-stop") title = `↕ Cover SL ${action} ${quantity}`;
 
   const line = candleSeries.createPriceLine({
     price,
@@ -4041,10 +4125,21 @@ function plotOrderLines() {
 
     if (isPendingLimitBracketEntry(order)) {
       const entry = createOrderLineItem(order, "bracket-entry", getOrderNumberField(order, "PRICE", "Price", "price"));
-      const stop = createOrderLineItem(order, "bracket-stop", getBracketStopLossPrice(order));
+      const stop = createOrderLineItem(order, "bracket-stop", getStrategyStopLossPrice(order));
       const target = createOrderLineItem(order, "bracket-target", getBracketTargetPrice(order));
 
       [entry, stop, target].forEach(item => {
+        if (item) pendingLines.push(item);
+      });
+
+      return;
+    }
+
+    if (isPendingLimitCoverEntry(order)) {
+      const entry = createOrderLineItem(order, "cover-entry", getOrderNumberField(order, "PRICE", "Price", "price"));
+      const stop = createOrderLineItem(order, "cover-stop", getStrategyStopLossPrice(order));
+
+      [entry, stop].forEach(item => {
         if (item) pendingLines.push(item);
       });
 
@@ -4162,10 +4257,15 @@ function describeOrder(order, kind = "") {
     label = "Bracket entry";
   } else if (kind === "bracket-stop") {
     label = "Bracket stop-loss";
-    price = getBracketStopLossPrice(order);
+    price = getStrategyStopLossPrice(order);
   } else if (kind === "bracket-target") {
     label = "Bracket target";
     price = getBracketTargetPrice(order);
+  } else if (kind === "cover-entry") {
+    label = "Cover entry";
+  } else if (kind === "cover-stop") {
+    label = "Cover stop-loss";
+    price = getStrategyStopLossPrice(order);
   }
 
   return `${label}: ${action} ${symbol} · Qty ${qty} · ${price ? formatMoney(price) : "Market"}`;
@@ -4443,6 +4543,14 @@ function buildDraggedOrderLineTitle(item, price) {
 
   if (item.kind === "bracket-target") {
     return `↕ Bracket TGT ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  if (item.kind === "cover-entry") {
+    return `↕ Cover Entry ${action} ${qty} @ ${fmtNum(price)}`;
+  }
+
+  if (item.kind === "cover-stop") {
+    return `↕ Cover SL ${action} ${qty} @ ${fmtNum(price)}`;
   }
 
   return `↕ Pending ${action} ${qty} @ ${fmtNum(price)}`;
