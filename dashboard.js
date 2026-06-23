@@ -14,13 +14,16 @@ const INDICATOR_STORAGE_KEY = "tt_indicatorSettings";
 let activeChartStyle = localStorage.getItem(CHART_STYLE_STORAGE_KEY) || "candles";
 let rawCandleData = [];
 
-let indicatorSettings = {
-  ema9: true,
-  ema21: true,
-  ema50: false,
-  vwap: true,
-  bollinger: false
+const DEFAULT_INDICATOR_SETTINGS = {
+  sma: { enabled: true, period: 3 },
+  emaFast: { enabled: true, period: 9 },
+  emaSlow: { enabled: true, period: 21 },
+  emaTrend: { enabled: false, period: 50 },
+  vwap: { enabled: true },
+  bollinger: { enabled: false, period: 20, multiplier: 2 }
 };
+
+let indicatorSettings = cloneDefaultIndicatorSettings();
 let indicatorSeries = {};
 let activeOrderLineDrag = null;
 let orderLineDragBound = false;
@@ -222,16 +225,10 @@ function setupEventHandlers() {
       els.indicatorMenu.classList.add("hidden");
     }
   });
-  document.querySelectorAll("[data-indicator]").forEach(input => {
-    input.addEventListener("change", () => {
-      const key = input.dataset.indicator;
-
-      indicatorSettings[key] = input.checked;
-
-      saveIndicatorSettings();
-      applyIndicators();
-    });
-  });
+  setupIndicatorSettingHandlers();
+  if (document.getElementById("resetIndicatorsBtn")) {
+    document.getElementById("resetIndicatorsBtn").onclick = resetIndicatorSettings;
+  }
   [
     els.presetBudgetEnabled,
     els.presetRiskEnabled,
@@ -315,17 +312,7 @@ function setupEventHandlers() {
   }
   );
   document.getElementById("toggleSMA").onclick = () => {
-    smaVisible = !smaVisible;
-    localStorage.setItem("tt_smaVisible", JSON.stringify(smaVisible));
-    if (smaVisible) {
-      const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time);
-      smaSeries.setData(calculateSMA(candles, 3));
-      document.getElementById("toggleSMA").classList.add("active")
-    }
-    else {
-      smaSeries.setData([]);
-      document.getElementById("toggleSMA").classList.remove("active")
-    }
+    setSmaEnabled(!smaVisible);
   };
   document.getElementById("toggleFilledOrders").onclick = () => {
     filledOrderVisible = !filledOrderVisible;
@@ -916,7 +903,7 @@ function onCrosshairMove(param) {
   if (smaData) {
     const y = smaSeries.priceToCoordinate(smaData.value), x = chart.timeScale().timeToCoordinate(smaData.time);
     if (y !== null && x !== null) {
-      smaTooltip.textContent = `SMA: ${fmtNum(smaData.value)}`;
+      smaTooltip.textContent = `SMA ${getIndicatorPeriod("sma", 3)}: ${fmtNum(smaData.value)}`;
       smaTooltip.style.left = `${x + 24}px`;
       smaTooltip.style.top = `${y - 16}px`;
       smaTooltip.style.display = "block"
@@ -1911,27 +1898,183 @@ async function placeChartOrder(plan) {
     showToast(err.message || "Chart order failed", "error");
   }
 }
+function cloneDefaultIndicatorSettings() {
+  return JSON.parse(JSON.stringify(DEFAULT_INDICATOR_SETTINGS));
+}
+function normalizeIndicatorSettings(saved) {
+  const defaults = cloneDefaultIndicatorSettings();
+
+  if (!saved || typeof saved !== "object") {
+    defaults.sma.enabled = smaVisible;
+    return defaults;
+  }
+
+  // Backward compatibility for the old boolean-only settings:
+  // { ema9: true, ema21: true, ema50: false, vwap: true, bollinger: false }
+  if (typeof saved.ema9 === "boolean") defaults.emaFast.enabled = saved.ema9;
+  if (typeof saved.ema21 === "boolean") defaults.emaSlow.enabled = saved.ema21;
+  if (typeof saved.ema50 === "boolean") defaults.emaTrend.enabled = saved.ema50;
+  if (typeof saved.vwap === "boolean") defaults.vwap.enabled = saved.vwap;
+  if (typeof saved.bollinger === "boolean") defaults.bollinger.enabled = saved.bollinger;
+
+  Object.keys(defaults).forEach(key => {
+    const savedValue = saved[key];
+
+    if (!savedValue || typeof savedValue !== "object") return;
+
+    defaults[key] = {
+      ...defaults[key],
+      ...savedValue
+    };
+  });
+
+  defaults.sma.enabled = typeof defaults.sma.enabled === "boolean" ? defaults.sma.enabled : smaVisible;
+  defaults.sma.period = sanitizeIndicatorNumber(defaults.sma.period, 3, 1, 300, true);
+  defaults.emaFast.period = sanitizeIndicatorNumber(defaults.emaFast.period, 9, 1, 300, true);
+  defaults.emaSlow.period = sanitizeIndicatorNumber(defaults.emaSlow.period, 21, 1, 300, true);
+  defaults.emaTrend.period = sanitizeIndicatorNumber(defaults.emaTrend.period, 50, 1, 300, true);
+  defaults.bollinger.period = sanitizeIndicatorNumber(defaults.bollinger.period, 20, 1, 300, true);
+  defaults.bollinger.multiplier = sanitizeIndicatorNumber(defaults.bollinger.multiplier, 2, 0.1, 10, false);
+
+  return defaults;
+}
+function sanitizeIndicatorNumber(value, fallback, min, max, integerOnly = false) {
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric)) return fallback;
+
+  const clamped = Math.min(max, Math.max(min, numeric));
+
+  return integerOnly ? Math.round(clamped) : Number(clamped.toFixed(2));
+}
 function loadIndicatorSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(INDICATOR_STORAGE_KEY));
-
-    if (saved) {
-      indicatorSettings = {
-        ...indicatorSettings,
-        ...saved
-      };
-    }
+    indicatorSettings = normalizeIndicatorSettings(saved);
   } catch {
     localStorage.removeItem(INDICATOR_STORAGE_KEY);
+    indicatorSettings = normalizeIndicatorSettings(null);
   }
+
+  smaVisible = !!indicatorSettings.sma.enabled;
+  localStorage.setItem("tt_smaVisible", JSON.stringify(smaVisible));
 }
 function saveIndicatorSettings() {
   localStorage.setItem(INDICATOR_STORAGE_KEY, JSON.stringify(indicatorSettings));
+  localStorage.setItem("tt_smaVisible", JSON.stringify(!!indicatorSettings.sma?.enabled));
 }
 function syncIndicatorInputs() {
-  document.querySelectorAll("[data-indicator]").forEach(input => {
-    input.checked = !!indicatorSettings[input.dataset.indicator];
+  document.querySelectorAll("[data-indicator-enabled]").forEach(input => {
+    const key = input.dataset.indicatorEnabled;
+    input.checked = !!indicatorSettings[key]?.enabled;
   });
+
+  document.querySelectorAll("[data-indicator-period]").forEach(input => {
+    const key = input.dataset.indicatorPeriod;
+    const value = indicatorSettings[key]?.period;
+
+    if (value !== undefined) {
+      input.value = value;
+    }
+  });
+
+  document.querySelectorAll("[data-indicator-multiplier]").forEach(input => {
+    const key = input.dataset.indicatorMultiplier;
+    const value = indicatorSettings[key]?.multiplier;
+
+    if (value !== undefined) {
+      input.value = value;
+    }
+  });
+}
+function setupIndicatorSettingHandlers() {
+  document.querySelectorAll("[data-indicator-enabled]").forEach(input => {
+    input.addEventListener("change", () => {
+      const key = input.dataset.indicatorEnabled;
+
+      if (!indicatorSettings[key]) return;
+
+      indicatorSettings[key].enabled = input.checked;
+
+      if (key === "sma") {
+        setSmaEnabled(input.checked);
+      } else {
+        saveIndicatorSettings();
+        applyIndicators();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-indicator-period]").forEach(input => {
+    input.addEventListener("input", () => {
+      const key = input.dataset.indicatorPeriod;
+
+      if (!indicatorSettings[key]) return;
+
+      const period = sanitizeIndicatorNumber(input.value, indicatorSettings[key].period || 1, 1, 300, true);
+      indicatorSettings[key].period = period;
+      input.value = period;
+
+      saveIndicatorSettings();
+
+      if (key === "sma") {
+        applySmaIndicator();
+      } else {
+        applyIndicators();
+      }
+    });
+  });
+
+  document.querySelectorAll("[data-indicator-multiplier]").forEach(input => {
+    input.addEventListener("input", () => {
+      const key = input.dataset.indicatorMultiplier;
+
+      if (!indicatorSettings[key]) return;
+
+      const multiplier = sanitizeIndicatorNumber(input.value, indicatorSettings[key].multiplier || 2, 0.1, 10, false);
+      indicatorSettings[key].multiplier = multiplier;
+      input.value = multiplier;
+
+      saveIndicatorSettings();
+      applyIndicators();
+    });
+  });
+}
+function resetIndicatorSettings() {
+  indicatorSettings = cloneDefaultIndicatorSettings();
+  smaVisible = !!indicatorSettings.sma.enabled;
+  saveIndicatorSettings();
+  syncIndicatorInputs();
+  applySmaIndicator();
+  applyIndicators();
+  showToast("Indicator settings reset", "success");
+}
+function getIndicatorPeriod(key, fallback) {
+  return sanitizeIndicatorNumber(indicatorSettings[key]?.period, fallback, 1, 300, true);
+}
+function setSmaEnabled(enabled, shouldSave = true) {
+  if (!indicatorSettings.sma) {
+    indicatorSettings.sma = { enabled: true, period: 3 };
+  }
+
+  indicatorSettings.sma.enabled = !!enabled;
+  smaVisible = !!enabled;
+
+  if (shouldSave) {
+    saveIndicatorSettings();
+  }
+
+  syncIndicatorInputs();
+  applySmaIndicator();
+}
+function applySmaIndicator() {
+  if (!smaSeries) return;
+
+  const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time);
+  const period = getIndicatorPeriod("sma", 3);
+
+  smaSeries.setData(smaVisible ? calculateSMA(candles, period) : []);
+  document.getElementById("toggleSMA")?.classList.toggle("active", smaVisible);
 }
 function ensureIndicatorSeries(key, options) {
   if (indicatorSeries[key]) {
@@ -1965,28 +2108,24 @@ function applyIndicators() {
     return;
   }
 
-  if (indicatorSettings.ema9) {
-    ensureIndicatorSeries("ema9", { color: "#4db6ff" })
-      .setData(calculateEMA(candles, 9));
-  } else {
-    removeIndicatorSeries("ema9");
-  }
+  const emaConfigs = [
+    { key: "emaFast", color: "#4db6ff", fallbackPeriod: 9 },
+    { key: "emaSlow", color: "#d9b87a", fallbackPeriod: 21 },
+    { key: "emaTrend", color: "#b56cff", fallbackPeriod: 50 }
+  ];
 
-  if (indicatorSettings.ema21) {
-    ensureIndicatorSeries("ema21", { color: "#d9b87a" })
-      .setData(calculateEMA(candles, 21));
-  } else {
-    removeIndicatorSeries("ema21");
-  }
+  emaConfigs.forEach(config => {
+    const setting = indicatorSettings[config.key];
 
-  if (indicatorSettings.ema50) {
-    ensureIndicatorSeries("ema50", { color: "#b56cff" })
-      .setData(calculateEMA(candles, 50));
-  } else {
-    removeIndicatorSeries("ema50");
-  }
+    if (setting?.enabled) {
+      ensureIndicatorSeries(config.key, { color: config.color })
+        .setData(calculateEMA(candles, getIndicatorPeriod(config.key, config.fallbackPeriod)));
+    } else {
+      removeIndicatorSeries(config.key);
+    }
+  });
 
-  if (indicatorSettings.vwap) {
+  if (indicatorSettings.vwap?.enabled) {
     ensureIndicatorSeries("vwap", {
       color: "#f5c542",
       lineStyle: LightweightCharts.LineStyle.Dashed
@@ -1995,8 +2134,10 @@ function applyIndicators() {
     removeIndicatorSeries("vwap");
   }
 
-  if (indicatorSettings.bollinger) {
-    const bands = calculateBollingerBands(candles, 20, 2);
+  if (indicatorSettings.bollinger?.enabled) {
+    const period = getIndicatorPeriod("bollinger", 20);
+    const multiplier = sanitizeIndicatorNumber(indicatorSettings.bollinger.multiplier, 2, 0.1, 10, false);
+    const bands = calculateBollingerBands(candles, period, multiplier);
 
     ensureIndicatorSeries("bbUpper", { color: "rgba(77, 182, 255, 0.85)" })
       .setData(bands.upper);
@@ -2211,7 +2352,7 @@ async function getCandleData() {
     ));
     renderPriceSeries();
     volumeSeries.setData(vol);
-    smaSeries.setData(smaVisible ? calculateSMA(formatted, 3) : []);
+    smaSeries.setData(smaVisible ? calculateSMA(formatted, getIndicatorPeriod("sma", 3)) : []);
     applyIndicators();
     candleBuckets = {};
     formatted.forEach(c => candleBuckets[c.time] = {
@@ -2271,7 +2412,7 @@ function processTick(tick) {
     time: bucket.time, value: bucket.volume, color: bucket.close >= bucket.open ? "rgba(0,192,118,.28)" : "rgba(255,77,90,.24)"
   }
   );
-  const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time), smaData = calculateSMA(candles, 3),
+  const candles = Object.values(candleBuckets).sort((a, b) => a.time - b.time), smaData = calculateSMA(candles, getIndicatorPeriod("sma", 3)),
     latest = smaData[smaData.length - 1];
   if (latest && latest.value !== undefined && smaVisible) smaSeries.update(latest);
   updateIndicatorsOnTick(rawCandleData);

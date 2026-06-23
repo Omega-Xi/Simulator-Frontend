@@ -663,7 +663,7 @@ button:disabled {
   top: 76px;
   right: 18px;
   z-index: 90;
-  width: 280px;
+  width: 340px;
   padding: 12px;
   border-radius: 16px;
   background: rgba(9, 11, 15, 0.96);
@@ -677,9 +677,16 @@ button:disabled {
 }
 
 .indicatorMenuHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.indicatorMenuHeader > div {
   display: grid;
   gap: 3px;
-  margin-bottom: 10px;
 }
 
 .indicatorMenuHeader strong {
@@ -692,6 +699,24 @@ button:disabled {
   font-size: 11px;
 }
 
+.indicatorMenuHeader button {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.055);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.indicatorMenuHeader button:hover {
+  color: var(--text-main);
+  background: rgba(201, 169, 110, 0.14);
+  border-color: rgba(201, 169, 110, 0.34);
+}
+
 .indicatorToggle {
   display: flex;
   align-items: center;
@@ -700,6 +725,16 @@ button:disabled {
   padding: 10px 8px;
   border-radius: 12px;
   cursor: pointer;
+}
+
+.indicatorToggleGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.indicatorToggleTall {
+  align-items: flex-start;
 }
 
 .indicatorToggle:hover {
@@ -716,15 +751,54 @@ button:disabled {
   color: var(--text-main);
 }
 
-.indicatorToggle small {
+.indicatorToggle small,
+.indicatorControls small {
   font-size: 10px;
   color: var(--text-muted);
 }
 
-.indicatorToggle input {
+.indicatorControls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.indicatorControlsSingle {
+  min-width: 72px;
+}
+
+.indicatorControlsStack {
+  align-items: flex-end;
+}
+
+.indicatorControlsStack > div {
+  display: grid;
+  gap: 4px;
+}
+
+.indicatorControls input[type="checkbox"] {
   width: 16px;
   height: 16px;
   accent-color: var(--brand);
+}
+
+.indicatorControls input[type="number"] {
+  width: 64px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-main);
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 800;
+  outline: none;
+}
+
+.indicatorControls input[type="number"]:focus {
+  border-color: rgba(201, 169, 110, 0.48);
+  box-shadow: 0 0 0 2px var(--brand-soft);
 }
 
 .panelHeader {

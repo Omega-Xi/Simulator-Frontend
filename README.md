@@ -39,3 +39,9 @@ Backend assumptions:
 - Browser signin uses /api/account/signin?useCookie=true
 - Refresh token is stored by backend as HttpOnly cookie
 - Access token is stored in sessionStorage
+
+Recent dashboard changes:
+- Added customizable indicator settings in the chart indicator menu.
+- SMA, EMA Fast, EMA Slow, EMA Trend, VWAP, and Bollinger Bands can now be enabled/disabled from the indicator menu.
+- SMA/EMA/Bollinger periods and Bollinger multiplier are saved in localStorage.
+- Existing old indicator localStorage values are migrated automatically.
